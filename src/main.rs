@@ -13,7 +13,7 @@ use image::io::Reader as ImageReader;
 struct Args {
     /// The expression to evaluate
     #[arg(short)]
-    expression: String,
+    expression: Vec<String>,
 
     /// The input image file to use
     #[arg(short)]
@@ -26,48 +26,52 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    println!("Expression: {}", args.expression);
     println!("Input File: {}", args.input);
-
-    let tokens = parser::shunting_yard(&args.expression).map_err(|e| anyhow::anyhow!(e))?;
-    println!("Tokens: {:?}", tokens);
 
     // create path buffer
     let path = std::path::Path::new(&args.input);
     let mut img = ImageReader::open(path)?.decode()?;
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgb8);
 
-    let width = img.width();
-    let height = img.height();
+    for e in &args.expression {
+        let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
+        println!("Expression: {:?}", e);
+        println!("Tokens: {:?}", tokens);
 
-    let mut sr = 0u8;
-    let mut sg = 0u8;
-    let mut sb = 0u8;
+        let width = img.width();
+        let height = img.height();
 
-    let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
-    let min_x = bounds.min_x();
-    let max_x = bounds.max_x();
+        let mut sr = 0u8;
+        let mut sg = 0u8;
+        let mut sb = 0u8;
 
-    let min_y = bounds.min_y();
-    let max_y = bounds.max_y();
-    println!("Bounds: {:?}", bounds);
-    let mut rng = rand::thread_rng();
+        let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
+        let min_x = bounds.min_x();
+        let max_x = bounds.max_x();
 
-    for x in min_x..max_x {
-        for y in min_y..max_y {
-            let colors = img.get_pixel(x, y).to_rgba();
-            let [r, g, b, a] = colors.0;
+        let min_y = bounds.min_y();
+        let max_y = bounds.max_y();
+        println!("Bounds: {:?}", bounds);
+        let mut rng = rand::thread_rng();
 
-            // The eval function is assumed to be synchronous and CPU-bound
-            let result = eval::eval(x, y, width, height, r, g, b, if a <= 0 { 255 } else { a }, sr, sg, sb, &img, &mut rng, tokens.clone())
-                .expect("Failed to evaluate");
+        for x in min_x..max_x {
+            for y in min_y..max_y {
+                let colors = img.get_pixel(x, y).to_rgba();
+                let [r, g, b, a] = colors.0;
 
-            sr = result[0];
-            sg = result[1];
-            sb = result[2];
+                // The eval function is assumed to be synchronous and CPU-bound
+                let result = eval::eval(x, y, width, height, r, g, b, if a <= 0 { 255 } else { a }, sr, sg, sb, &img, &mut rng, tokens.clone())
+                    .expect("Failed to evaluate");
 
-            output_image.put_pixel(x, y, result);
+                sr = result[0];
+                sg = result[1];
+                sb = result[2];
+
+                output_image.put_pixel(x, y, result);
+            }
         }
+
+        img = output_image.clone();
     }
 
     println!("Saving image");
