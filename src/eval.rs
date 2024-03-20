@@ -39,6 +39,7 @@ impl SumSave {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn eval(
     x: u32,
     y: u32,
@@ -247,7 +248,7 @@ pub fn eval(
                 });
             }
 
-            Token::CharToken(c) => match c {
+            Token::Char(c) => match c {
                 'c' => stack.push(RgbSum { r, g, b }),
                 'R' => stack.push(RgbSum { r: 255, g: 0, b: 0 }),
                 'G' => stack.push(RgbSum { r: 0, g: 255, b: 0 }),

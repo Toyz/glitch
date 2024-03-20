@@ -21,7 +21,7 @@ pub enum Token {
     Weight,
     LeftParen,
     RightParen,
-    CharToken(char),
+    Char(char),
 }
 
 pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
@@ -48,7 +48,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                 let digit = c.to_digit(10).unwrap() as i64;
                 number_buffer = match number_buffer {
                     Some(number) => {
-                        let new_number = number as i64 * 10i64 + digit as i64;
+                        let new_number = number as i64 * 10i64 + digit;
                         if new_number > 255 {
                             return Err(format!(
                                 "Number exceeds 255 at position {}",
@@ -102,7 +102,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
             }
             _ if valid_tok(c) => {
-                output_queue.push_back(Token::CharToken(c));
+                output_queue.push_back(Token::Char(c));
             }
             _ => {
                 return Err(format!(

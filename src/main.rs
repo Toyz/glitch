@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
                     r,
                     g,
                     b,
-                    if a <= 0 { 255 } else { a },
+                    if a == 0 { 255 } else { a },
                     sr,
                     sg,
                     sb,
