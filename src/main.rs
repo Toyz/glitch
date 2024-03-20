@@ -95,7 +95,7 @@ fn main() -> anyhow::Result<()> {
         img = output_image.clone();
     }
 
-    eprintln!("Saving image");
+    eprintln!("Saving image...");
 
     let output_format = image::ImageFormat::from_path(path).unwrap_or_else(|_| {
         eprintln!("Unrecognized image format, defaulting to PNG");
@@ -110,7 +110,8 @@ fn main() -> anyhow::Result<()> {
         PathBuf::from,
     );
 
-    output_image.save_with_format(output_file, output_format)?;
+    output_image.save_with_format(&output_file, output_format)?;
+    eprintln!("Image saved to {:?}", output_file.to_string_lossy());
 
     Ok(())
 }
