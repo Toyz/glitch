@@ -6,6 +6,7 @@ use gif::{Encoder, Repeat};
 use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
 use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
+use crate::parser::Token;
 
 mod parser;
 mod eval;
@@ -37,6 +38,20 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("File does not exist"));
     }
 
+    let mut parsed: Vec<(String, Vec<Token>)> = vec![];
+    for e in &args.expressions {
+        let tokens = match parser::shunting_yard(e) {
+            Ok(tokens) => tokens,
+            Err(err) => {
+                println!("Expression: {}", e);
+                println!("{}", err);
+                return Ok(());
+            }
+        };
+
+        parsed.push((e.to_string(), tokens));
+    }
+
     let format = get_format(&path);
     let output_extension = get_output_extension(&path);
     println!("Saving image");
@@ -49,11 +64,11 @@ fn main() -> anyhow::Result<()> {
     let img = ImageReader::open(&path)?.decode()?;
     match format {
         image::ImageFormat::Png => {
-            let out = process(img, args.expressions)?;
+            let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         },
         image::ImageFormat::Jpeg => {
-            let out = process(img, args.expressions)?;
+            let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         },
         image::ImageFormat::Gif => {
@@ -73,7 +88,7 @@ fn main() -> anyhow::Result<()> {
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(img.into(), args.expressions.clone())?;
+                let out = process(img.into(), parsed.clone())?;
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -88,11 +103,12 @@ fn main() -> anyhow::Result<()> {
     Ok(())
 }
 
-fn process(mut img: DynamicImage, expressions: Vec<String>) -> anyhow::Result<DynamicImage> {
+fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
-    for e in &expressions {
-        let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
+    for val in &expressions {
+        let (e, tokens) = val;
+
         println!("Expression: {:?}", e);
         println!("Tokens: {:?}", tokens);
 
@@ -109,7 +125,6 @@ fn process(mut img: DynamicImage, expressions: Vec<String>) -> anyhow::Result<Dy
 
         let min_y = bounds.min_y();
         let max_y = bounds.max_y();
-        println!("Bounds: {:?}", bounds);
         let mut rng = rand::thread_rng();
 
         for x in min_x..max_x {
