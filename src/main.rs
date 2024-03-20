@@ -88,7 +88,7 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let format = match output_file.extension().expect("file extension").to_str().expect("to string") {
+    let format = match output_file.extension().unwrap_or_default().to_str().expect("to string") {
         "png" => image::ImageFormat::Png,
         "jpg" | "jpeg" => image::ImageFormat::Jpeg,
         "gif" => image::ImageFormat::Gif,
