@@ -25,7 +25,7 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    println!("Input File: {}", args.input);
+    eprintln!("Input File: {}", args.input);
 
     // create path buffer
     let path = std::path::Path::new(&args.input);
@@ -39,8 +39,8 @@ fn main() -> anyhow::Result<()> {
 
     for e in &args.expressions {
         let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
-        println!("Expression: {:?}", e);
-        println!("Tokens: {:?}", tokens);
+        eprintln!("Expression: {:?}", e);
+        eprintln!("Tokens: {:?}", tokens);
 
         let width = img.width();
         let height = img.height();
@@ -55,7 +55,7 @@ fn main() -> anyhow::Result<()> {
 
         let min_y = bounds.min_y();
         let max_y = bounds.max_y();
-        println!("Bounds: {:?}", bounds);
+        eprintln!("Bounds: {:?}", bounds);
         let mut rng = rand::thread_rng();
 
         for x in min_x..max_x {
@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
         img = output_image.clone();
     }
 
-    println!("Saving image");
+    eprintln!("Saving image");
 
     let output_file = match args.output {
         Some(file) => PathBuf::from(file),
