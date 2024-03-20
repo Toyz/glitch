@@ -97,7 +97,10 @@ fn main() -> anyhow::Result<()> {
         "tiff" => image::ImageFormat::Tiff,
         "webp" => image::ImageFormat::WebP,
         "hdr" => image::ImageFormat::Hdr,
-        _ => return Err(anyhow::anyhow!("Unsupported file format")),
+        _ => {
+            eprintln!("Unrecognized image format, defaulting to PNG");
+            image::ImageFormat::Png
+        }
     };
 
     output_image.save_with_format(output_file, format)?;
