@@ -1,7 +1,10 @@
+use std::io::{BufReader, BufWriter};
 use std::path::PathBuf;
 
 use clap::Parser;
-use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
+use gif::{Encoder, Repeat};
+use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
+use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
 
 mod parser;
@@ -28,16 +31,67 @@ fn main() -> anyhow::Result<()> {
     println!("Input File: {}", args.input);
 
     // create path buffer
-    let path = std::path::Path::new(&args.input);
+    let path = std::path::PathBuf::from(&args.input);
     // check if file exists
     if !path.exists() {
         return Err(anyhow::anyhow!("File does not exist"));
     }
 
-    let mut img = ImageReader::open(path)?.decode()?;
-    let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgb8);
+    let format = get_format(&path);
+    let output_extension = get_output_extension(&path);
+    println!("Saving image");
 
-    for e in &args.expressions {
+    let output_file = match args.output {
+        Some(file) => PathBuf::from(file),
+        None => PathBuf::from(format!("output.{}", output_extension)),
+    };
+
+    let img = ImageReader::open(&path)?.decode()?;
+    match format {
+        image::ImageFormat::Png => {
+            let out = process(img, args.expressions)?;
+            out.save_with_format(output_file, format)?;
+        },
+        image::ImageFormat::Jpeg => {
+            let out = process(img, args.expressions)?;
+            out.save_with_format(output_file, format)?;
+        },
+        image::ImageFormat::Gif => {
+            let f = std::fs::File::open(&path)?;
+            let decoder = GifDecoder::new(BufReader::new(f))?;
+            let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
+            let frames = decoder.into_frames().collect_frames()?;
+
+            let output = std::fs::File::create(&output_file)?;
+            let mut writer = BufWriter::new(output);
+
+
+            let mut encoder = Encoder::new(&mut writer, w as u16, h as u16, &[])?;
+            encoder.set_repeat(Repeat::Infinite)?;
+
+            for frame in &frames {
+                let frame = frame.clone();
+                let delay = frame.delay().numer_denom_ms().0 as u16;
+                let img = frame.into_buffer();
+                let out = process(img.into(), args.expressions.clone())?;
+                let mut bytes = out.as_bytes().to_vec();
+
+                let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
+
+                new_frame.delay = delay / 10;
+                encoder.write_frame(&new_frame)?;
+            }
+        },
+        _ => return Err(anyhow::anyhow!("Unsupported file format")),
+    };
+
+    Ok(())
+}
+
+fn process(mut img: DynamicImage, expressions: Vec<String>) -> anyhow::Result<DynamicImage> {
+    let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
+
+    for e in &expressions {
         let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
         println!("Expression: {:?}", e);
         println!("Tokens: {:?}", tokens);
@@ -77,18 +131,11 @@ fn main() -> anyhow::Result<()> {
 
         img = output_image.clone();
     }
+    Ok(output_image)
+}
 
-    println!("Saving image");
-
-    let output_file = match args.output {
-        Some(file) => PathBuf::from(file),
-        None => {
-            let file_extension = path.extension().expect("file extension").to_str().expect("to string");
-            PathBuf::from(format!("output.{}", file_extension))
-        }
-    };
-
-    let format = match output_file.extension().expect("file extension").to_str().expect("to string") {
+fn get_format(file: &PathBuf) -> image::ImageFormat {
+    match file.extension().expect("file extension").to_str().expect("to string") {
         "png" => image::ImageFormat::Png,
         "jpg" | "jpeg" => image::ImageFormat::Jpeg,
         "gif" => image::ImageFormat::Gif,
@@ -97,10 +144,10 @@ fn main() -> anyhow::Result<()> {
         "tiff" => image::ImageFormat::Tiff,
         "webp" => image::ImageFormat::WebP,
         "hdr" => image::ImageFormat::Hdr,
-        _ => return Err(anyhow::anyhow!("Unsupported file format")),
-    };
+        _ => panic!("Unsupported file format"),
+    }
+}
 
-    output_image.save_with_format(output_file, format)?;
-
-    Ok(())
+fn get_output_extension(file: &PathBuf) -> &str {
+    file.extension().expect("file extension").to_str().expect("to string")
 }
