@@ -2,6 +2,8 @@
 
 use std::collections::VecDeque;
 
+use anyhow::anyhow;
+
 #[derive(Debug, Clone, PartialEq)]
 pub enum Token {
     Num(u8),
@@ -24,7 +26,7 @@ pub enum Token {
     Char(char),
 }
 
-pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
+pub(crate) fn shunting_yard(input: &str) -> anyhow::Result<Vec<Token>> {
     let mut output_queue: VecDeque<Token> = VecDeque::new();
     let mut operator_stack: Vec<Token> = Vec::new();
     let mut number_buffer: Option<u8> = None;
@@ -33,7 +35,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
     let push_number_buffer = |number_buffer: &mut Option<u8>,
                               output_queue: &mut VecDeque<Token>,
                               _position: usize|
-     -> Result<(), String> {
+     -> anyhow::Result<()> {
         if let Some(number) = *number_buffer {
             output_queue.push_back(Token::Num(number));
             *number_buffer = None;
@@ -50,7 +52,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     Some(number) => {
                         let new_number = number as i64 * 10i64 + digit;
                         if new_number > 255 {
-                            return Err(format!(
+                            return Err(anyhow!(
                                 "Number exceeds 255 at position {}",
                                 current_position
                             ));
@@ -105,9 +107,10 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                 output_queue.push_back(Token::Char(c));
             }
             _ => {
-                return Err(format!(
+                return Err(anyhow!(
                     "Invalid character '{}' at position {}",
-                    c, current_position
+                    c,
+                    current_position
                 ))
             }
         }
@@ -117,7 +120,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
 
     while let Some(op) = operator_stack.pop() {
         if matches!(op, Token::LeftParen) {
-            return Err("Mismatched parenthesis detected".to_string());
+            return Err(anyhow!("Mismatched parenthesis detected"));
         }
         output_queue.push_back(op);
     }

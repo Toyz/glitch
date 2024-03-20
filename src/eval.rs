@@ -1,4 +1,5 @@
 use crate::parser::Token;
+use anyhow::anyhow;
 use image::{DynamicImage, GenericImageView, Rgba};
 use rand::prelude::ThreadRng;
 use rand::{random, Rng};
@@ -55,7 +56,7 @@ pub fn eval(
     input: &DynamicImage,
     rng: &mut ThreadRng,
     tokens: Vec<Token>,
-) -> Result<Rgba<u8>, String> {
+) -> anyhow::Result<Rgba<u8>> {
     if a == 0 {
         return Ok(Rgba([0, 0, 0, 0]));
     }
@@ -97,8 +98,8 @@ pub fn eval(
             Token::Num(n) => stack.push(RgbSum { r: n, g: n, b: n }),
 
             Token::Add => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r.wrapping_add(b.r),
                     g: a.g.wrapping_add(b.g),
@@ -107,8 +108,8 @@ pub fn eval(
             }
 
             Token::Sub => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r.wrapping_sub(b.r),
                     g: a.g.wrapping_sub(b.g),
@@ -117,8 +118,8 @@ pub fn eval(
             }
 
             Token::Mul => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r.wrapping_mul(b.r),
                     g: a.g.wrapping_mul(b.g),
@@ -127,8 +128,8 @@ pub fn eval(
             }
 
             Token::Div => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: div(a.r, b.r),
                     g: div(a.g, b.g),
@@ -137,8 +138,8 @@ pub fn eval(
             }
 
             Token::Mod => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: modu(a.r, b.r),
                     g: modu(a.g, b.g),
@@ -147,8 +148,8 @@ pub fn eval(
             }
 
             Token::Pow => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r.wrapping_pow(b.r.into()),
                     g: a.g.wrapping_pow(b.g.into()),
@@ -157,8 +158,8 @@ pub fn eval(
             }
 
             Token::BitAnd => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r & b.r,
                     g: a.g & b.g,
@@ -167,8 +168,8 @@ pub fn eval(
             }
 
             Token::BitOr => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r | b.r,
                     g: a.g | b.g,
@@ -177,8 +178,8 @@ pub fn eval(
             }
 
             Token::BitAndNot => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: bit_and_not(a.r, b.r),
                     g: bit_and_not(a.g, b.g),
@@ -187,8 +188,8 @@ pub fn eval(
             }
 
             Token::BitXor => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
                 stack.push(RgbSum {
                     r: a.r ^ b.r,
                     g: a.g ^ b.g,
@@ -197,8 +198,8 @@ pub fn eval(
             }
 
             Token::BitLShift => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
 
                 let rr = a.r.wrapping_shl(b.r.into());
                 let gg = a.g.wrapping_shl(b.g.into());
@@ -212,8 +213,8 @@ pub fn eval(
             }
 
             Token::BitRShift => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
 
                 let rr = a.r.wrapping_shr(b.r.into());
                 let gg = a.g.wrapping_shr(b.g.into());
@@ -227,8 +228,8 @@ pub fn eval(
             }
 
             Token::Weight => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
 
                 stack.push(RgbSum {
                     r: weight(a.r, b.r),
@@ -238,8 +239,8 @@ pub fn eval(
             }
 
             Token::Greater => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
+                let b = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
+                let a = stack.pop().ok_or_else(|| anyhow!("Stack underflow"))?;
 
                 stack.push(RgbSum {
                     r: if a.r > b.r { 255 } else { 0 },
@@ -418,21 +419,18 @@ pub fn eval(
                         None => {
                             let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                            let r_m = max(vec![
+                            let r_m = max([
                                 boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r,
                                 boxed[6].r, boxed[7].r, boxed[8].r,
-                            ])
-                            .expect("max");
-                            let g_m = max(vec![
+                            ]);
+                            let g_m = max([
                                 boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g,
                                 boxed[6].g, boxed[7].g, boxed[8].g,
-                            ])
-                            .expect("max");
-                            let b_m = max(vec![
+                            ]);
+                            let b_m = max([
                                 boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b,
                                 boxed[6].b, boxed[7].b, boxed[8].b,
-                            ])
-                            .expect("max");
+                            ]);
 
                             let v_h = RgbSum {
                                 r: r_m,
@@ -453,21 +451,18 @@ pub fn eval(
                         None => {
                             let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                            let r_m = min(vec![
+                            let r_m = min([
                                 boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r,
                                 boxed[6].r, boxed[7].r, boxed[8].r,
-                            ])
-                            .expect("min");
-                            let g_m = min(vec![
+                            ]);
+                            let g_m = min([
                                 boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g,
                                 boxed[6].g, boxed[7].g, boxed[8].g,
-                            ])
-                            .expect("min");
-                            let b_m = min(vec![
+                            ]);
+                            let b_m = min([
                                 boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b,
                                 boxed[6].b, boxed[7].b, boxed[8].b,
-                            ])
-                            .expect("min");
+                            ]);
 
                             let v_l = RgbSum {
                                 r: r_m,
@@ -548,14 +543,14 @@ pub fn eval(
 
                     stack.push(v_d);
                 }
-                _ => return Err(format!("Unexpected token: {:?}", c)),
+                _ => return Err(anyhow!("Unexpected token: {:?}", c)),
             },
 
-            _ => return Err(format!("Unexpected token: {:?}", tok)),
+            _ => return Err(anyhow!("Unexpected token: {:?}", tok)),
         }
     }
 
-    let col = stack.last().ok_or("Stack underflow")?;
+    let col = stack.last().ok_or_else(|| anyhow!("Stack underflow"))?;
     Ok(Rgba([col.r, col.g, col.b, a]))
 }
 
@@ -590,12 +585,12 @@ fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rg
     boxed
 }
 
-fn max(vals: Vec<u8>) -> Option<u8> {
-    vals.iter().cloned().max()
+fn max(vals: [u8; 8]) -> u8 {
+    vals.iter().cloned().max().unwrap_or_default()
 }
 
-fn min(vals: Vec<u8>) -> Option<u8> {
-    vals.iter().cloned().min()
+fn min(vals: [u8; 8]) -> u8 {
+    vals.iter().cloned().min().unwrap_or_default()
 }
 
 fn wrapping_vec_add_u32(a: Vec<u8>) -> u32 {

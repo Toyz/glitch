@@ -1,5 +1,6 @@
 use std::path::PathBuf;
 
+use anyhow::{anyhow, Context};
 use clap::Parser;
 use image::io::Reader as ImageReader;
 use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
@@ -38,7 +39,7 @@ fn main() -> anyhow::Result<()> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgb8);
 
     for e in &args.expressions {
-        let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
+        let tokens = parser::shunting_yard(e)?;
         eprintln!("Expression: {:?}", e);
         eprintln!("Tokens: {:?}", tokens);
 
@@ -49,7 +50,8 @@ fn main() -> anyhow::Result<()> {
         let mut sg = 0u8;
         let mut sb = 0u8;
 
-        let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
+        let bounds = bounds::find_non_zero_bounds(&img)
+            .ok_or_else(|| anyhow!("Failed to find non-zero bounds"))?;
         let min_x = bounds.min_x();
         let max_x = bounds.max_x();
 
@@ -80,7 +82,7 @@ fn main() -> anyhow::Result<()> {
                     &mut rng,
                     tokens.clone(),
                 )
-                .expect("Failed to evaluate");
+                .with_context(|| format!("Failed to evaluate expression {e:?}"))?;
 
                 sr = result[0];
                 sg = result[1];
@@ -95,39 +97,20 @@ fn main() -> anyhow::Result<()> {
 
     eprintln!("Saving image");
 
-    let output_file = match args.output {
-        Some(file) => PathBuf::from(file),
-        None => {
-            let file_extension = path
-                .extension()
-                .expect("file extension")
-                .to_str()
-                .expect("to string");
-            PathBuf::from(format!("output.{}", file_extension))
-        }
-    };
+    let output_format = image::ImageFormat::from_path(path).unwrap_or_else(|_| {
+        eprintln!("Unrecognized image format, defaulting to PNG");
+        image::ImageFormat::Png
+    });
 
-    let format = match output_file
-        .extension()
-        .unwrap_or_default()
-        .to_str()
-        .expect("to string")
-    {
-        "png" => image::ImageFormat::Png,
-        "jpg" | "jpeg" => image::ImageFormat::Jpeg,
-        "gif" => image::ImageFormat::Gif,
-        "bmp" => image::ImageFormat::Bmp,
-        "ico" => image::ImageFormat::Ico,
-        "tiff" => image::ImageFormat::Tiff,
-        "webp" => image::ImageFormat::WebP,
-        "hdr" => image::ImageFormat::Hdr,
-        _ => {
-            eprintln!("Unrecognized image format, defaulting to PNG");
-            image::ImageFormat::Png
-        }
-    };
+    let output_file = args.output.map_or_else(
+        || {
+            let extension = output_format.extensions_str()[0];
+            PathBuf::from(format!("output.{extension}"))
+        },
+        PathBuf::from,
+    );
 
-    output_image.save_with_format(output_file, format)?;
+    output_image.save_with_format(output_file, output_format)?;
 
     Ok(())
 }
