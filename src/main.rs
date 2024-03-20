@@ -4,11 +4,9 @@ mod bounds;
 
 use std::fmt::Write;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
 use clap::Parser;
 use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
 use image::io::Reader as ImageReader;
-use tokio::task;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -54,7 +52,7 @@ fn main() -> anyhow::Result<()> {
     let max_y = bounds.max_y();
     println!("Bounds: {:?}", bounds);
     let mut rng = rand::thread_rng();
-    
+
     for x in min_x..max_x {
         for y in min_y..max_y {
             let colors = img.get_pixel(x, y).to_rgba();
