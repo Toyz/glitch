@@ -138,3 +138,91 @@ fn valid_tok(tok: char) -> bool {
     matches!(tok, 'c' | 's' | 'Y' | 'r' | 'x' | 'y' | 'N' | 'R' | 'G' |
                   'B' | 'e' | 'b' | 'H' | 'L' | 'h' | 'v' | 'd')
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_simple_expression() {
+        let input = "3+5";
+        let expected = Ok(vec![
+            Token::Num(3),
+            Token::Num(5),
+            Token::Add,
+        ]);
+        assert_eq!(shunting_yard(input), expected);
+    }
+
+    #[test]
+    fn test_invalid_character() {
+        let input = "3$5";
+        assert!(shunting_yard(input).is_err());
+    }
+
+    #[test]
+    fn test_number_exceeds_255() {
+        let input = "256";
+        assert!(shunting_yard(input).is_err());
+    }
+
+    #[test]
+    fn test_mixed_operators() {
+        let input = "3+5*2";
+        let expected = Ok(vec![
+            Token::Num(3),
+            Token::Num(5),
+            Token::Num(2),
+            Token::Mul,
+            Token::Add,
+        ]);
+        assert_eq!(shunting_yard(input), expected);
+    }
+
+    #[test]
+    fn test_parentheses() {
+        let input = "(3+5)*2";
+        let expected = Ok(vec![
+            Token::Num(3),
+            Token::Num(5),
+            Token::Add,
+            Token::Num(2),
+            Token::Mul,
+        ]);
+        assert_eq!(shunting_yard(input), expected);
+    }
+
+    #[test]
+    fn test_mismatched_parentheses() {
+        let input = "(3+5*2";
+        assert!(shunting_yard(input).is_err());
+    }
+
+    #[test]
+    fn test_valid_characters() {
+        let input = "c+Y";
+        let expected = Ok(vec![
+            Token::CharToken('c'),
+            Token::CharToken('Y'),
+            Token::Add,
+        ]);
+        assert_eq!(shunting_yard(input), expected);
+    }
+
+    #[test]
+    fn test_complete_expression() {
+        let input = "3 + 5 / (2 - 1) * 4";
+        let expected = Ok(vec![
+            Token::Num(3),
+            Token::Num(5),
+            Token::Num(2),
+            Token::Num(1),
+            Token::Sub,
+            Token::Div,
+            Token::Num(4),
+            Token::Mul,
+            Token::Add,
+        ]);
+        assert_eq!(shunting_yard(input), expected);
+    }
+}
