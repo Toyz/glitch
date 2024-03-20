@@ -1,5 +1,4 @@
-use std::ops::Range;
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{DynamicImage, GenericImageView};
 
 /// Represents the bounds of an image with non-zero pixels.
 #[derive(Debug, Clone, Copy)]
@@ -36,11 +35,6 @@ impl Bounds {
         if y > self.max_y {
             self.max_y = y;
         }
-    }
-
-    /// Returns the bounds as ranges for x and y.
-    pub fn to_ranges(self) -> (Range<u32>, Range<u32>) {
-        (self.min_x..self.max_x + 1, self.min_y..self.max_y + 1)
     }
 
     pub fn min_x(&self) -> u32 {

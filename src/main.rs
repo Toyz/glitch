@@ -1,26 +1,25 @@
+use std::path::PathBuf;
+
+use clap::Parser;
+use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
+use image::io::Reader as ImageReader;
+
 mod parser;
 mod eval;
 mod bounds;
-
-use std::fmt::Write;
-use std::path::PathBuf;
-use clap::Parser;
-use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel, Rgba};
-use image::io::Reader as ImageReader;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// The expression to evaluate
-    #[arg(short)]
-    expression: Vec<String>,
+    #[arg(short, long)]
+    expressions: Vec<String>,
 
-    /// The input image file to use
-    #[arg(short)]
+    /// The input file
     input: String,
 
     /// optional output file
-    #[arg(short)]
+    #[arg(short,long)]
     output: Option<String>,
 }
 
@@ -30,10 +29,15 @@ fn main() -> anyhow::Result<()> {
 
     // create path buffer
     let path = std::path::Path::new(&args.input);
+    // check if file exists
+    if !path.exists() {
+        return Err(anyhow::anyhow!("File does not exist"));
+    }
+
     let mut img = ImageReader::open(path)?.decode()?;
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgb8);
 
-    for e in &args.expression {
+    for e in &args.expressions {
         let tokens = parser::shunting_yard(e).map_err(|ee| anyhow::anyhow!(ee.clone()))?;
         println!("Expression: {:?}", e);
         println!("Tokens: {:?}", tokens);

@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq)]
@@ -28,7 +30,7 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
     let mut number_buffer: Option<u8> = None;
     let mut current_position: usize = 0;
 
-    let mut push_number_buffer = |number_buffer: &mut Option<u8>, output_queue: &mut VecDeque<Token>, position: usize| -> Result<(), String> {
+    let push_number_buffer = |number_buffer: &mut Option<u8>, output_queue: &mut VecDeque<Token>, _position: usize| -> Result<(), String> {
         if let Some(number) = *number_buffer {
             output_queue.push_back(Token::Num(number));
             *number_buffer = None;

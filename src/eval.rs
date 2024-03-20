@@ -1,32 +1,31 @@
-use std::iter::Sum;
 use image::{DynamicImage, GenericImageView, Rgba};
 use rand::prelude::ThreadRng;
 use rand::{random, Rng};
 use crate::parser::Token;
 
 #[derive(Debug, Clone, Copy)]
-struct sum {
+struct RgbSum {
     r: u8,
     g: u8,
     b: u8
 }
 
 #[derive(Debug)]
-struct sum_save {
-    v_y: Option<sum>,
-    v_b: Option<sum>,
-    v_e: Option<sum>,
-    v_r: Option<sum>,
-    v_h: Option<sum>,
-    v_v: Option<sum>,
-    v_d: Option<sum>,
-    v_H: Option<sum>,
-    v_L: Option<sum>
+struct SumSave {
+    v_y: Option<RgbSum>,
+    v_b: Option<RgbSum>,
+    v_e: Option<RgbSum>,
+    v_r: Option<RgbSum>,
+    v_h: Option<RgbSum>,
+    v_v: Option<RgbSum>,
+    v_d: Option<RgbSum>,
+    v_high: Option<RgbSum>,
+    v_low: Option<RgbSum>
 }
 
-impl sum_save {
+impl SumSave {
     fn new() -> Self {
-        sum_save {
+        SumSave {
             v_y: None,
             v_b: None,
             v_e: None,
@@ -34,8 +33,8 @@ impl sum_save {
             v_h: None,
             v_v: None,
             v_d: None,
-            v_H: None,
-            v_L: None
+            v_high: None,
+            v_low: None
         }
     }
 }
@@ -45,7 +44,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
         return Ok(Rgba([0, 0, 0, 0]));
     }
 
-    let mut stack: Vec<sum> = Vec::with_capacity(tokens.len());
+    let mut stack: Vec<RgbSum> = Vec::with_capacity(tokens.len());
 
     let div = |a: u8, b: u8| -> u8 {
         if b == 0 {
@@ -79,71 +78,71 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
         x < width && y < height
     };
 
-    let mut saved = sum_save::new();
-    let mut boxxed: [sum; 9] = [sum { r: 0, g: 0, b: 0 }; 9];
+    let mut saved = SumSave::new();
+    // let mut boxed: [RgbSum; 9] = [RgbSum { r: 0, g: 0, b: 0 }; 9];
 
     for tok in tokens {
         match tok {
-            Token::Num(n) => stack.push(sum { r: n, g: n, b: n }),
+            Token::Num(n) => stack.push(RgbSum { r: n, g: n, b: n }),
 
             Token::Add => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r.wrapping_add(b.r), g: a.g.wrapping_add(b.g), b: a.b.wrapping_add(b.b) });
+                stack.push(RgbSum { r: a.r.wrapping_add(b.r), g: a.g.wrapping_add(b.g), b: a.b.wrapping_add(b.b) });
             },
 
             Token::Sub => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r.wrapping_sub(b.r), g: a.g.wrapping_sub(b.g), b: a.b.wrapping_sub(b.b) });
+                stack.push(RgbSum { r: a.r.wrapping_sub(b.r), g: a.g.wrapping_sub(b.g), b: a.b.wrapping_sub(b.b) });
             },
 
             Token::Mul => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r.wrapping_mul(b.r), g: a.g.wrapping_mul(b.g), b: a.b.wrapping_mul(b.b) });
+                stack.push(RgbSum { r: a.r.wrapping_mul(b.r), g: a.g.wrapping_mul(b.g), b: a.b.wrapping_mul(b.b) });
             },
 
             Token::Div => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: div(a.r, b.r), g: div(a.g, b.g), b: div(a.b, b.b) });
+                stack.push(RgbSum { r: div(a.r, b.r), g: div(a.g, b.g), b: div(a.b, b.b) });
             },
 
             Token::Mod => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: modu(a.r, b.r), g: modu(a.g, b.g), b: modu(a.b, b.b) });
+                stack.push(RgbSum { r: modu(a.r, b.r), g: modu(a.g, b.g), b: modu(a.b, b.b) });
             },
 
             Token::Pow => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r.wrapping_pow(b.r.into()), g: a.g.wrapping_pow(b.g.into()), b: a.b.wrapping_pow(b.b.into()) });
+                stack.push(RgbSum { r: a.r.wrapping_pow(b.r.into()), g: a.g.wrapping_pow(b.g.into()), b: a.b.wrapping_pow(b.b.into()) });
             },
 
             Token::BitAnd => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r & b.r, g: a.g & b.g, b: a.b & b.b });
+                stack.push(RgbSum { r: a.r & b.r, g: a.g & b.g, b: a.b & b.b });
             },
 
             Token::BitOr => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r | b.r, g: a.g | b.g, b: a.b | b.b });
+                stack.push(RgbSum { r: a.r | b.r, g: a.g | b.g, b: a.b | b.b });
             },
 
             Token::BitAndNot => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: bit_and_not(a.r, b.r), g: bit_and_not(a.g, b.g), b: bit_and_not(a.b, b.b) });
+                stack.push(RgbSum { r: bit_and_not(a.r, b.r), g: bit_and_not(a.g, b.g), b: bit_and_not(a.b, b.b) });
             },
 
             Token::BitXor => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(sum { r: a.r ^ b.r, g: a.g ^ b.g, b: a.b ^ b.b });
+                stack.push(RgbSum { r: a.r ^ b.r, g: a.g ^ b.g, b: a.b ^ b.b });
             },
 
             Token::BitLShift => {
@@ -154,7 +153,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                 let gg = a.g.wrapping_shl(b.g.into());
                 let bb = a.b.wrapping_shl(b.b.into());
 
-                stack.push(sum { r: rr, g: gg, b: bb });
+                stack.push(RgbSum { r: rr, g: gg, b: bb });
             },
 
             Token::BitRShift => {
@@ -165,35 +164,35 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                 let gg = a.g.wrapping_shr(b.g.into());
                 let bb = a.b.wrapping_shr(b.b.into());
 
-                stack.push(sum { r: rr, g: gg, b: bb });
+                stack.push(RgbSum { r: rr, g: gg, b: bb });
             },
 
             Token::Weight => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
 
-                stack.push(sum { r: weight(a.r, b.r), g: weight(a.g, b.g), b: weight(a.b, b.b) });
+                stack.push(RgbSum { r: weight(a.r, b.r), g: weight(a.g, b.g), b: weight(a.b, b.b) });
             },
 
             Token::Greater => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
 
-                stack.push(sum { r: if a.r > b.r { 255 } else { 0 }, g: if a.g > b.g { 255 } else { 0 }, b: if a.b > b.b { 255 } else { 0 } });
+                stack.push(RgbSum { r: if a.r > b.r { 255 } else { 0 }, g: if a.g > b.g { 255 } else { 0 }, b: if a.b > b.b { 255 } else { 0 } });
             }
 
             Token::CharToken(c) => {
                 match c {
-                    'c' => stack.push(sum { r, g, b }),
-                    'R' => stack.push(sum { r: 255, g: 0, b: 0 }),
-                    'G' => stack.push(sum { r: 0, g: 255, b: 0 }),
-                    'B' => stack.push(sum { r: 0, g: 0, b: 255 }),
+                    'c' => stack.push(RgbSum { r, g, b }),
+                    'R' => stack.push(RgbSum { r: 255, g: 0, b: 0 }),
+                    'G' => stack.push(RgbSum { r: 0, g: 255, b: 0 }),
+                    'B' => stack.push(RgbSum { r: 0, g: 0, b: 255 }),
                     'Y' => {
                         let v_y = match saved.v_y {
                             Some(v_y) => v_y,
                             None => {
                                 let y = f64::from(r) * 0.299 + f64::from(g) * 0.587 + f64::from(b) * 0.0722;
-                                let v_y = sum { r: y as u8, g: y as u8, b: y as u8 };
+                                let v_y = RgbSum { r: y as u8, g: y as u8, b: y as u8 };
                                 saved.v_y = Some(v_y);
                                 v_y
                             }
@@ -201,14 +200,14 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
 
                         stack.push(v_y);
                     },
-                    's' => stack.push(sum { r: sr, g: sg, b: sb }),
+                    's' => stack.push(RgbSum { r: sr, g: sg, b: sb }),
                     'x' => {
                         let xu = three_rule(x, width);
-                        stack.push(sum { r: xu, g: xu, b: xu });
+                        stack.push(RgbSum { r: xu, g: xu, b: xu });
                     },
                     'y' => {
                         let yu = three_rule(y, height);
-                        stack.push(sum { r: yu, g: yu, b: yu });
+                        stack.push(RgbSum { r: yu, g: yu, b: yu });
                     },
                     'r' => {
                         let v_r = match saved.v_r {
@@ -238,7 +237,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                                     false => [0, 0, 0, 0]
                                 };
 
-                                let v_r = sum {
+                                let v_r = RgbSum {
                                     r: p1[0],
                                     g: p2[1],
                                     b: p3[2]
@@ -255,18 +254,18 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                         let v_e = match saved.v_e {
                             Some(v_e) => v_e,
                             None => {
-                                boxxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
+                                let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                                let rr = boxxed[8].r.wrapping_sub(boxxed[0].r).wrapping_add(boxxed[5].r).wrapping_sub(boxxed[3].r).wrapping_add(boxxed[7].r).
-                                            wrapping_sub(boxxed[1].r).wrapping_add(boxxed[6].r).wrapping_sub(boxxed[2].r);
+                                let rr = boxed[8].r.wrapping_sub(boxed[0].r).wrapping_add(boxed[5].r).wrapping_sub(boxed[3].r).wrapping_add(boxed[7].r).
+                                            wrapping_sub(boxed[1].r).wrapping_add(boxed[6].r).wrapping_sub(boxed[2].r);
 
-                                let gg = boxxed[8].g.wrapping_sub(boxxed[0].g).wrapping_add(boxxed[5].g).wrapping_sub(boxxed[3].g).wrapping_add(boxxed[7].g).
-                                            wrapping_sub(boxxed[1].g).wrapping_add(boxxed[6].g).wrapping_sub(boxxed[2].g);
+                                let gg = boxed[8].g.wrapping_sub(boxed[0].g).wrapping_add(boxed[5].g).wrapping_sub(boxed[3].g).wrapping_add(boxed[7].g).
+                                            wrapping_sub(boxed[1].g).wrapping_add(boxed[6].g).wrapping_sub(boxed[2].g);
 
-                                let bb = boxxed[8].b.wrapping_sub(boxxed[0].b).wrapping_add(boxxed[5].b).wrapping_sub(boxxed[3].b).wrapping_add(boxxed[7].b).
-                                            wrapping_sub(boxxed[1].b).wrapping_add(boxxed[6].b).wrapping_sub(boxxed[2].b);
+                                let bb = boxed[8].b.wrapping_sub(boxed[0].b).wrapping_add(boxed[5].b).wrapping_sub(boxed[3].b).wrapping_add(boxed[7].b).
+                                            wrapping_sub(boxed[1].b).wrapping_add(boxed[6].b).wrapping_sub(boxed[2].b);
 
-                                let v_e = sum {
+                                let v_e = RgbSum {
                                     r: rr,
                                     g: gg,
                                     b: bb
@@ -282,13 +281,13 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                         let v_b = match saved.v_b {
                             Some(v_b) => v_b,
                             None => {
-                                boxxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
+                                let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                                let rr = wrapping_vec_add_u32(vec![boxxed[0].r, boxxed[1].r, boxxed[2].r, boxxed[3].r, boxxed[5].r, boxxed[6].r, boxxed[7].r, boxxed[8].r]);
-                                let gg = wrapping_vec_add_u32(vec![boxxed[0].g, boxxed[1].g, boxxed[2].g, boxxed[3].g, boxxed[5].g, boxxed[6].g, boxxed[7].g, boxxed[8].g]);
-                                let bb = wrapping_vec_add_u32(vec![boxxed[0].b, boxxed[1].b, boxxed[2].b, boxxed[3].b, boxxed[5].b, boxxed[6].b, boxxed[7].b, boxxed[8].b]);
+                                let rr = wrapping_vec_add_u32(vec![boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r, boxed[6].r, boxed[7].r, boxed[8].r]);
+                                let gg = wrapping_vec_add_u32(vec![boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g, boxed[6].g, boxed[7].g, boxed[8].g]);
+                                let bb = wrapping_vec_add_u32(vec![boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b, boxed[6].b, boxed[7].b, boxed[8].b]);
 
-                                let v_b = sum {
+                                let v_b = RgbSum {
                                     r: (rr / 9) as u8,
                                     g: (gg / 9) as u8,
                                     b: (bb / 9) as u8,
@@ -301,22 +300,22 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                         stack.push(v_b);
                     },
                     'H' => {
-                        let v_h = match saved.v_H {
+                        let v_h = match saved.v_high {
                             Some(v_h) => v_h,
                             None => {
-                                boxxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
+                                let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                                let r_m = max(vec![boxxed[0].r, boxxed[1].r, boxxed[2].r, boxxed[3].r, boxxed[5].r, boxxed[6].r, boxxed[7].r, boxxed[8].r]).expect("max");
-                                let g_m = max(vec![boxxed[0].g, boxxed[1].g, boxxed[2].g, boxxed[3].g, boxxed[5].g, boxxed[6].g, boxxed[7].g, boxxed[8].g]).expect("max");
-                                let b_m = max(vec![boxxed[0].b, boxxed[1].b, boxxed[2].b, boxxed[3].b, boxxed[5].b, boxxed[6].b, boxxed[7].b, boxxed[8].b]).expect("max");
+                                let r_m = max(vec![boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r, boxed[6].r, boxed[7].r, boxed[8].r]).expect("max");
+                                let g_m = max(vec![boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g, boxed[6].g, boxed[7].g, boxed[8].g]).expect("max");
+                                let b_m = max(vec![boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b, boxed[6].b, boxed[7].b, boxed[8].b]).expect("max");
 
-                                let v_h = sum {
+                                let v_h = RgbSum {
                                     r: r_m,
                                     g: g_m,
                                     b: b_m
                                 };
 
-                                saved.v_H = Some(v_h);
+                                saved.v_high = Some(v_h);
                                 v_h
                             }
                         };
@@ -324,28 +323,29 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                         stack.push(v_h);
                     },
                     'L' => {
-                        let v_l = match saved.v_L {
+                        let v_l = match saved.v_low {
                             Some(v_l) => v_l,
                             None => {
-                                boxxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
-                                let r_m = min(vec![boxxed[0].r, boxxed[1].r, boxxed[2].r, boxxed[3].r, boxxed[5].r, boxxed[6].r, boxxed[7].r, boxxed[8].r]).expect("min");
-                                let g_m = min(vec![boxxed[0].g, boxxed[1].g, boxxed[2].g, boxxed[3].g, boxxed[5].g, boxxed[6].g, boxxed[7].g, boxxed[8].g]).expect("min");
-                                let b_m = min(vec![boxxed[0].b, boxxed[1].b, boxxed[2].b, boxxed[3].b, boxxed[5].b, boxxed[6].b, boxxed[7].b, boxxed[8].b]).expect("min");
+                                let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                                let v_l = sum {
+                                let r_m = min(vec![boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r, boxed[6].r, boxed[7].r, boxed[8].r]).expect("min");
+                                let g_m = min(vec![boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g, boxed[6].g, boxed[7].g, boxed[8].g]).expect("min");
+                                let b_m = min(vec![boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b, boxed[6].b, boxed[7].b, boxed[8].b]).expect("min");
+
+                                let v_l = RgbSum {
                                     r: r_m,
                                     g: g_m,
                                     b: b_m
                                 };
 
-                                saved.v_L = Some(v_l);
+                                saved.v_low = Some(v_l);
                                 v_l
                             }
                         };
 
                         stack.push(v_l);
                     },
-                    'N' => stack.push(sum { r: rng.gen_range(0..=255), g: rng.gen_range(0..=255), b: rng.gen_range(0..=255) }),
+                    'N' => stack.push(RgbSum { r: rng.gen_range(0..=255), g: rng.gen_range(0..=255), b: rng.gen_range(0..=255) }),
                     'h' => {
                         let v_h = match saved.v_h {
                             Some(v_h) => v_h,
@@ -353,7 +353,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                                 let h = width - x - 1;
                                 let pixel = input.get_pixel(h, y).0;
 
-                                let v_h = sum {
+                                let v_h = RgbSum {
                                     r: pixel[0],
                                     g: pixel[1],
                                     b: pixel[2]
@@ -373,7 +373,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                                 let v = height - y - 1;
                                 let pixel = input.get_pixel(x, v).0;
 
-                                let v_v = sum {
+                                let v_v = RgbSum {
                                     r: pixel[0],
                                     g: pixel[1],
                                     b: pixel[2]
@@ -394,7 +394,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                                 let y = height - y - 1;
                                 let pixel = input.get_pixel(x, y).0;
 
-                                let v_d = sum {
+                                let v_d = RgbSum {
                                     r: pixel[0],
                                     g: pixel[1],
                                     b: pixel[2]
@@ -419,27 +419,27 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
     Ok(Rgba([col.r, col.g, col.b, a]))
 }
 
-fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [sum; 9] {
+fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [RgbSum; 9] {
     let mut k = 0;
 
-    let mut boxed: [sum; 9] = [sum { r: 0, g: 0, b: 0 }; 9];
+    let mut boxed: [RgbSum; 9] = [RgbSum { r: 0, g: 0, b: 0 }; 9];
 
     for i in x - 1..=x + 1 {
         for j in y - 1..=y + 1 {
             if i == x && j == y {
-                boxed[k] = sum { r, g, b };
+                boxed[k] = RgbSum { r, g, b };
                 k += 1;
                 continue;
             }
 
             if i < 0 || j < 0 {
-                boxed[k] = sum { r: 0, g: 0, b: 0 };
+                boxed[k] = RgbSum { r: 0, g: 0, b: 0 };
                 k += 1;
                 continue;
             }
 
             let pixel = input.get_pixel(i as u32, j as u32).0;
-            boxed[k] = sum { r: pixel[0], g: pixel[1], b: pixel[2] };
+            boxed[k] = RgbSum { r: pixel[0], g: pixel[1], b: pixel[2] };
             k += 1;
         }
     }
@@ -452,14 +452,6 @@ fn max(vals: Vec<u8>) -> Option<u8> {
 
 fn min(vals: Vec<u8>) -> Option<u8> {
     vals.iter().cloned().min()
-}
-
-fn wrapping_vec_add(a: Vec<u8>) -> u8 {
-    let mut sum: u8 = 0;
-    for i in a {
-        sum = sum.wrapping_add(i);
-    }
-    sum
 }
 
 fn wrapping_vec_add_u32(a: Vec<u8>) -> u32 {
