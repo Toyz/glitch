@@ -30,7 +30,10 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
     let mut number_buffer: Option<u8> = None;
     let mut current_position: usize = 0;
 
-    let push_number_buffer = |number_buffer: &mut Option<u8>, output_queue: &mut VecDeque<Token>, _position: usize| -> Result<(), String> {
+    let push_number_buffer = |number_buffer: &mut Option<u8>,
+                              output_queue: &mut VecDeque<Token>,
+                              _position: usize|
+     -> Result<(), String> {
         if let Some(number) = *number_buffer {
             output_queue.push_back(Token::Num(number));
             *number_buffer = None;
@@ -47,52 +50,66 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     Some(number) => {
                         let new_number = number as i64 * 10i64 + digit as i64;
                         if new_number > 255 {
-                            return Err(format!("Number exceeds 255 at position {}", current_position));
+                            return Err(format!(
+                                "Number exceeds 255 at position {}",
+                                current_position
+                            ));
                         } else {
                             Some(new_number as u8)
                         }
-                    },
+                    }
                     None => Some(digit as u8),
                 };
-            },
+            }
             '+' | '-' | '*' | '/' | '%' | '#' | '&' | '|' | ':' | '^' | '<' | '>' | '?' | '@' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
-                handle_operator(&mut operator_stack, &mut output_queue, match c {
-                    '+' => Token::Add,
-                    '-' => Token::Sub,
-                    '*' => Token::Mul,
-                    '/' => Token::Div,
-                    '%' => Token::Mod,
-                    '#' => Token::Pow,
-                    '&' => Token::BitAnd,
-                    '|' => Token::BitOr,
-                    ':' => Token::BitAndNot,
-                    '^' => Token::BitXor,
-                    '<' => Token::BitLShift,
-                    '>' => Token::BitRShift,
-                    '?' => Token::Greater,
-                    '@' => Token::Weight,
-                    _ => unreachable!(),
-                });
-            },
+                handle_operator(
+                    &mut operator_stack,
+                    &mut output_queue,
+                    match c {
+                        '+' => Token::Add,
+                        '-' => Token::Sub,
+                        '*' => Token::Mul,
+                        '/' => Token::Div,
+                        '%' => Token::Mod,
+                        '#' => Token::Pow,
+                        '&' => Token::BitAnd,
+                        '|' => Token::BitOr,
+                        ':' => Token::BitAndNot,
+                        '^' => Token::BitXor,
+                        '<' => Token::BitLShift,
+                        '>' => Token::BitRShift,
+                        '?' => Token::Greater,
+                        '@' => Token::Weight,
+                        _ => unreachable!(),
+                    },
+                );
+            }
             '(' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
                 operator_stack.push(Token::LeftParen);
-            },
+            }
             ')' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
                 while let Some(op) = operator_stack.pop() {
-                    if matches!(op, Token::LeftParen) { break; }
+                    if matches!(op, Token::LeftParen) {
+                        break;
+                    }
                     output_queue.push_back(op);
                 }
-            },
+            }
             _ if c.is_whitespace() => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
-            },
+            }
             _ if valid_tok(c) => {
                 output_queue.push_back(Token::CharToken(c));
-            },
-            _ => return Err(format!("Invalid character '{}' at position {}", c, current_position)),
+            }
+            _ => {
+                return Err(format!(
+                    "Invalid character '{}' at position {}",
+                    c, current_position
+                ))
+            }
         }
     }
 
@@ -127,16 +144,39 @@ fn is_higher_precedence(new_op: &Token, top_op: &Token) -> bool {
 fn operator_precedence(op: &Token) -> (i32, i32) {
     match op {
         Token::Add | Token::Sub | Token::BitOr | Token::BitXor => (4, 4),
-        Token::Mul | Token::Div | Token::Mod | Token::BitAnd | Token::BitAndNot |
-        Token::BitLShift | Token::BitRShift | Token::Pow => (5, 5),
+        Token::Mul
+        | Token::Div
+        | Token::Mod
+        | Token::BitAnd
+        | Token::BitAndNot
+        | Token::BitLShift
+        | Token::BitRShift
+        | Token::Pow => (5, 5),
         Token::Greater | Token::Weight => (6, 6),
         _ => (-1, -1),
     }
 }
 
 fn valid_tok(tok: char) -> bool {
-    matches!(tok, 'c' | 's' | 'Y' | 'r' | 'x' | 'y' | 'N' | 'R' | 'G' |
-                  'B' | 'e' | 'b' | 'H' | 'L' | 'h' | 'v' | 'd')
+    matches!(
+        tok,
+        'c' | 's'
+            | 'Y'
+            | 'r'
+            | 'x'
+            | 'y'
+            | 'N'
+            | 'R'
+            | 'G'
+            | 'B'
+            | 'e'
+            | 'b'
+            | 'H'
+            | 'L'
+            | 'h'
+            | 'v'
+            | 'd'
+    )
 }
 
 #[cfg(test)]
@@ -146,11 +186,7 @@ mod tests {
     #[test]
     fn test_simple_expression() {
         let input = "3+5";
-        let expected = Ok(vec![
-            Token::Num(3),
-            Token::Num(5),
-            Token::Add,
-        ]);
+        let expected = Ok(vec![Token::Num(3), Token::Num(5), Token::Add]);
         assert_eq!(shunting_yard(input), expected);
     }
 

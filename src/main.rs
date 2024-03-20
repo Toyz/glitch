@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 
 use clap::Parser;
-use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
 use image::io::Reader as ImageReader;
+use image::{ColorType, DynamicImage, GenericImage, GenericImageView, Pixel};
 
-mod parser;
-mod eval;
 mod bounds;
+mod eval;
+mod parser;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -19,7 +19,7 @@ struct Args {
     input: String,
 
     /// optional output file
-    #[arg(short,long)]
+    #[arg(short, long)]
     output: Option<String>,
 }
 
@@ -64,8 +64,23 @@ fn main() -> anyhow::Result<()> {
                 let [r, g, b, a] = colors.0;
 
                 // The eval function is assumed to be synchronous and CPU-bound
-                let result = eval::eval(x, y, width, height, r, g, b, if a <= 0 { 255 } else { a }, sr, sg, sb, &img, &mut rng, tokens.clone())
-                    .expect("Failed to evaluate");
+                let result = eval::eval(
+                    x,
+                    y,
+                    width,
+                    height,
+                    r,
+                    g,
+                    b,
+                    if a <= 0 { 255 } else { a },
+                    sr,
+                    sg,
+                    sb,
+                    &img,
+                    &mut rng,
+                    tokens.clone(),
+                )
+                .expect("Failed to evaluate");
 
                 sr = result[0];
                 sg = result[1];
@@ -83,12 +98,21 @@ fn main() -> anyhow::Result<()> {
     let output_file = match args.output {
         Some(file) => PathBuf::from(file),
         None => {
-            let file_extension = path.extension().expect("file extension").to_str().expect("to string");
+            let file_extension = path
+                .extension()
+                .expect("file extension")
+                .to_str()
+                .expect("to string");
             PathBuf::from(format!("output.{}", file_extension))
         }
     };
 
-    let format = match output_file.extension().unwrap_or_default().to_str().expect("to string") {
+    let format = match output_file
+        .extension()
+        .unwrap_or_default()
+        .to_str()
+        .expect("to string")
+    {
         "png" => image::ImageFormat::Png,
         "jpg" | "jpeg" => image::ImageFormat::Jpeg,
         "gif" => image::ImageFormat::Gif,
