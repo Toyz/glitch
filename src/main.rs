@@ -39,6 +39,7 @@ fn main() -> anyhow::Result<()> {
         return Err(anyhow::anyhow!("File does not exist"));
     }
 
+    println!("Parsing expressions");
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
     for e in &args.expressions {
         let tokens = match parser::shunting_yard(e) {
@@ -50,33 +51,46 @@ fn main() -> anyhow::Result<()> {
             }
         };
 
+        println!("\tExpression: {:?}", e);
+        println!("\tTokens: {:?}", tokens.clone());
+
         parsed.push((e.to_string(), tokens));
     }
 
+    println!("Consuming expressions");
     let format = get_format(path);
     let output_extension = get_output_extension(path);
-    println!("Saving image");
 
     let output_file = match args.output {
         Some(file) => PathBuf::from(file),
         None => PathBuf::from(format!("output.{}", output_extension)),
     };
+    let output_file = output_file.as_path();
 
     let img = ImageReader::open(path)?.decode()?;
+    println!("\tProcessing: {}", path.display());
+    println!("\tSize: {}x{}", img.width(), img.height());
     match format {
         image::ImageFormat::Png => {
+            println!("\tProcessing mode: PNG");
+
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Jpeg => {
+            println!("\tProcessing mode: JPEG");
+
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Gif => {
+            println!("\tProcessing mode: GIF");
+
             let f = std::fs::File::open(path)?;
             let decoder = GifDecoder::new(BufReader::new(f))?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
+            println!("\tProcessing Frames: {}", frames.len());
 
             let output = std::fs::File::create(&output_file)?;
             let mut writer = BufWriter::new(output);
@@ -100,6 +114,8 @@ fn main() -> anyhow::Result<()> {
         _ => return Err(anyhow::anyhow!("Unsupported file format")),
     };
 
+    println!("Saved output to: {}", output_file.display());
+
     Ok(())
 }
 
@@ -110,10 +126,7 @@ fn process(
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
     for val in &expressions {
-        let (e, tokens) = val;
-
-        println!("Expression: {:?}", e);
-        println!("Tokens: {:?}", tokens);
+        let (_, tokens) = val;
 
         let width = img.width();
         let height = img.height();
