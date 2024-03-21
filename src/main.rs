@@ -92,7 +92,7 @@ fn main() -> anyhow::Result<()> {
             let frames = decoder.into_frames().collect_frames()?;
             println!("\tProcessing Frames: {}", frames.len());
 
-            let output = std::fs::File::create(&output_file)?;
+            let output = std::fs::File::create(output_file)?;
             let mut writer = BufWriter::new(output);
 
             let mut encoder = Encoder::new(&mut writer, w as u16, h as u16, &[])?;
