@@ -28,6 +28,10 @@ struct Args {
     /// optional output file
     #[arg(short, long)]
     output: Option<String>,
+
+    /// open the output file after processing
+    #[arg(long, default_value = "false")]
+    open: bool,
 }
 
 fn main() -> anyhow::Result<()> {
@@ -115,6 +119,10 @@ fn main() -> anyhow::Result<()> {
     };
 
     println!("Saved output to: {}", output_file.display());
+
+    if args.open {
+        open::that(output_file)?;
+    }
 
     Ok(())
 }
