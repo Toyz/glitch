@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-
+use ansiterm::{Color, Style};
 use std::collections::VecDeque;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
@@ -22,6 +22,148 @@ pub enum Token {
     LeftParen,
     RightParen,
     Char(char),
+}
+
+pub trait DisplayStyle {
+    fn get_style(&self) -> Style;
+}
+
+impl DisplayStyle for Token {
+    fn get_style(&self) -> Style {
+        match self {
+            Token::Num(_) => Style::new().fg(Color::BrightYellow),
+            Token::Greater => Style::new().fg(Color::BrightBlue),
+            Token::Char(_) => Style::new().fg(Color::BrightBlue),
+            Token::BitLShift => Style::new().fg(Color::BrightYellow),
+            Token::BitRShift => Style::new().fg(Color::BrightYellow),
+            Token::LeftParen => Style::new().fg(Color::BrightCyan),
+            Token::RightParen => Style::new().fg(Color::BrightCyan),
+            Token::BitAnd => Style::new().fg(Color::BrightYellow),
+            Token::BitXor => Style::new().fg(Color::BrightYellow),
+            Token::Sub => Style::new().fg(Color::BrightBlue),
+            Token::Add => Style::new().fg(Color::BrightBlue),
+            Token::Div => Style::new().fg(Color::BrightBlue),
+            Token::Mul => Style::new().fg(Color::BrightBlue),
+            Token::Mod => Style::new().fg(Color::BrightBlue),
+            Token::BitAndNot => Style::new().fg(Color::BrightYellow),
+            Token::BitOr => Style::new().fg(Color::BrightYellow),
+            Token::Pow => Style::new().fg(Color::BrightYellow),
+            Token::Weight => Style::new().fg(Color::BrightYellow),
+        }
+    }
+}
+impl std::fmt::Display for Token {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        let mut content: Option<&str> = None;
+        match self {
+            Token::Char(ch) => match ch {
+                'C' => {
+                    content = Some("Current Pixel Value");
+                }
+                'b' => {
+                    content = Some("Blurred");
+                }
+                'h' => {
+                    content = Some("Horizontal");
+                }
+                'v' => {
+                    content = Some("Vertical");
+                }
+                'd' => {
+                    content = Some("Diagonal");
+                }
+                'Y' => {
+                    content = Some("Luminosity");
+                }
+                'N' => {
+                    content = Some("Noise");
+                }
+                'R' => {
+                    content = Some("Red");
+                }
+                'G' => {
+                    content = Some("Green");
+                }
+                'B' => {
+                    content = Some("Blue");
+                }
+                'S' => {
+                    content = Some("Previous Saved Pixel Value");
+                }
+                'r' => {
+                    content = Some("Random Color");
+                }
+                'x' => {
+                    content = Some("X Coordinate");
+                }
+                'y' => {
+                    content = Some("Y Coordinate");
+                }
+                'H' => {
+                    content = Some("Highest Value");
+                }
+                'L' => {
+                    content = Some("Lowest Value");
+                }
+                _ => {}
+            },
+            Token::BitAnd => {
+                content = Some("Bitwise AND");
+            }
+            Token::BitAndNot => {
+                content = Some("Bitwise AND NOT");
+            }
+            Token::BitOr => {
+                content = Some("Bitwise OR");
+            }
+            Token::BitXor => {
+                content = Some("Bitwise XOR");
+            }
+            Token::BitLShift => {
+                content = Some("Bitwise Left Shift");
+            }
+            Token::BitRShift => {
+                content = Some("Bitwise Right Shift");
+            }
+            Token::Add => {
+                content = Some("Addition");
+            }
+            Token::Sub => {
+                content = Some("Subtraction");
+            }
+            Token::Mul => {
+                content = Some("Multiplication");
+            }
+            Token::Div => {
+                content = Some("Division");
+            }
+            Token::Mod => {
+                content = Some("Modulus");
+            }
+            Token::Pow => {
+                content = Some("Power");
+            }
+            Token::Greater => {
+                content = Some("Greater");
+            }
+            Token::Weight => {
+                content = Some("Weight");
+            }
+            _ => {}
+        }
+        match content {
+            Some(content) => {
+                let style = self.get_style();
+                let painted = style.paint(content);
+                f.write_str(painted.to_string().as_str())
+            }
+            None => {
+                let style = self.get_style();
+                let painted = style.paint(format!("{:?}", self));
+                f.write_str(painted.to_string().as_str())
+            }
+        }
+    }
 }
 
 pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {

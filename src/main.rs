@@ -1,8 +1,6 @@
-use std::io::{BufReader, BufWriter};
-use std::path::{Path, PathBuf};
-
 use crate::eval::EvalContext;
 use crate::parser::Token;
+use ansiterm::Color;
 use clap::Parser;
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
@@ -10,6 +8,8 @@ use image::io::Reader as ImageReader;
 use image::{
     AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
 };
+use std::io::{BufReader, BufWriter, Write};
+use std::path::{Path, PathBuf};
 
 mod bounds;
 mod eval;
@@ -36,32 +36,93 @@ struct Args {
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
-    println!("Input File: {}", args.input);
-
+    let mut writer = std::io::stdout();
+    let is_tty = std::io::IsTerminal::is_terminal(&writer);
+    write_painted(
+        &mut writer,
+        " Input File: ",
+        Color::BrightPurple,
+        (true, true),
+        is_tty,
+    )?;
+    write_painted(
+        &mut writer,
+        &args.input,
+        Color::RGB(255, 165, 0),
+        (false, false),
+        is_tty,
+    )?;
     let path = Path::new(&args.input);
     if !path.exists() {
-        return Err(anyhow::anyhow!("File does not exist"));
+        return Err(anyhow::anyhow!("File does not exist\n"));
     }
 
-    println!("Parsing expressions");
+    write_painted(
+        &mut writer,
+        "\n\nParsing expressions...\n",
+        Color::BrightBlue,
+        (true, false),
+        is_tty,
+    )?;
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
     for e in &args.expressions {
         let tokens = match parser::shunting_yard(e) {
             Ok(tokens) => tokens,
             Err(err) => {
-                println!("Expression: {}", e);
-                println!("{}", err);
+                write_painted(
+                    &mut writer,
+                    format!("\nExpression:{}\n", e).as_str(),
+                    Color::Red,
+                    (true, true),
+                    is_tty,
+                )?;
+                write_painted(
+                    &mut writer,
+                    format!("{}\n", err).as_str(),
+                    Color::Red,
+                    (false, false),
+                    is_tty,
+                )?;
                 return Ok(());
             }
         };
-
-        println!("\tExpression: {:?}", e);
-        println!("\tTokens: {:?}", tokens.clone());
+        write_painted(
+            &mut writer,
+            "\nExpression  \n",
+            Color::BrightCyan,
+            (true, true),
+            is_tty,
+        )?;
+        write_painted(
+            &mut writer,
+            format!("[  \"{}\"  ]\n\n", e).as_str(),
+            Color::RGB(255, 165, 0),
+            (false, false),
+            is_tty,
+        )?;
+        tokens.clone().iter().for_each(|t| match is_tty {
+            true => {
+                writer
+                    .write_fmt(format_args!("\t{}\n", t))
+                    .unwrap_or_default();
+            }
+            false => {
+                writer
+                    .write_fmt(format_args!("\t{:?}\n", t))
+                    .unwrap_or_default();
+            }
+        });
 
         parsed.push((e.to_string(), tokens));
     }
 
-    println!("Consuming expressions");
+    write_painted(
+        &mut writer,
+        "\n\nConsuming Expressions...\n\n",
+        Color::BrightPurple,
+        (true, false),
+        is_tty,
+    )?;
     let format = get_format(path);
     let output_extension = get_output_extension(path);
 
@@ -72,29 +133,76 @@ fn main() -> anyhow::Result<()> {
     let output_file = output_file.as_path();
 
     let img = ImageReader::open(path)?.decode()?;
-    println!("\tProcessing: {}", path.display());
-    println!("\tSize: {}x{}", img.width(), img.height());
+    write_painted(
+        &mut writer,
+        "\t Processing Image: ",
+        Color::BrightGreen,
+        (true, false),
+        is_tty,
+    )?;
+    write_painted(
+        &mut writer,
+        format!(
+            "{}\n",
+            &path.file_name().expect("Must be file").to_str().unwrap()
+        )
+        .as_str(),
+        Color::RGB(255, 165, 0),
+        (false, false),
+        is_tty,
+    )?;
+    write_painted(
+        &mut writer,
+        "\tSize:  ",
+        Color::BrightGreen,
+        (true, false),
+        is_tty,
+    )?;
+    writer.write_fmt(format_args!("{} x {}\n", img.width(), img.height()))?;
     match format {
         image::ImageFormat::Png => {
-            println!("\tProcessing mode: PNG");
-
+            write_painted(
+                &mut writer,
+                "\tProcessing mode: 󰸭 PNG\n",
+                Color::BrightGreen,
+                (true, false),
+                is_tty,
+            )?;
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Jpeg => {
-            println!("\tProcessing mode: JPEG");
+            write_painted(
+                &mut writer,
+                "\tProcessing mode: 󰈥 JPEG\n",
+                Color::BrightGreen,
+                (true, false),
+                is_tty,
+            )?;
 
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Gif => {
-            println!("\tProcessing mode: GIF");
+            write_painted(
+                &mut writer,
+                "\tProcessing mode: 󰵸 GIF\n\n",
+                Color::BrightGreen,
+                (true, false),
+                is_tty,
+            )?;
 
             let f = std::fs::File::open(path)?;
             let decoder = GifDecoder::new(BufReader::new(f))?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
-            println!("\tProcessing Frames: {}", frames.len());
+            write_painted(
+                &mut writer,
+                format!("Processing {} frames...\n\n", frames.len()).as_str(),
+                Color::BrightCyan,
+                (true, true),
+                is_tty,
+            )?;
 
             let output = std::fs::File::create(output_file)?;
             let mut writer = BufWriter::new(output);
@@ -115,16 +223,50 @@ fn main() -> anyhow::Result<()> {
                 encoder.write_frame(&new_frame)?;
             }
         }
-        _ => return Err(anyhow::anyhow!("Unsupported file format")),
+        _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
     };
 
-    println!("Saved output to: {}", output_file.display());
+    write_painted(
+        &mut writer,
+        "Saved output to: ",
+        Color::BrightYellow,
+        (true, true),
+        is_tty,
+    )?;
+    write_painted(
+        &mut writer,
+        output_file.to_str().unwrap(),
+        Color::RGB(255, 165, 0),
+        (false, false),
+        is_tty,
+    )?;
 
     if args.open {
         open::that(output_file)?;
     }
 
     Ok(())
+}
+
+fn write_painted(
+    w: &mut dyn Write,
+    s: &str,
+    color: Color,
+    bold_ul: (bool, bool),
+    is_tty: bool,
+) -> Result<(), std::io::Error> {
+    w.write_all(
+        match is_tty {
+            true => match bold_ul {
+                (true, true) => color.bold().underline().paint(s).to_string(),
+                (false, true) => color.underline().paint(s).to_string(),
+                (true, false) => color.bold().paint(s).to_string(),
+                (false, false) => color.paint(s).to_string(),
+            },
+            false => s.to_string(),
+        }
+        .as_bytes(),
+    )
 }
 
 fn process(
