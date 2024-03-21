@@ -1,17 +1,19 @@
 use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 
-use clap::Parser;
-use gif::{Encoder, Repeat};
-use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
-use image::codecs::gif::GifDecoder;
-use image::io::Reader as ImageReader;
 use crate::eval::EvalContext;
 use crate::parser::Token;
+use clap::Parser;
+use gif::{Encoder, Repeat};
+use image::codecs::gif::GifDecoder;
+use image::io::Reader as ImageReader;
+use image::{
+    AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
+};
 
-mod parser;
-mod eval;
 mod bounds;
+mod eval;
+mod parser;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -24,7 +26,7 @@ struct Args {
     input: String,
 
     /// optional output file
-    #[arg(short,long)]
+    #[arg(short, long)]
     output: Option<String>,
 }
 
@@ -65,11 +67,11 @@ fn main() -> anyhow::Result<()> {
         image::ImageFormat::Png => {
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
-        },
+        }
         image::ImageFormat::Jpeg => {
             let out = process(img, parsed)?;
             out.save_with_format(output_file, format)?;
-        },
+        }
         image::ImageFormat::Gif => {
             let f = std::fs::File::open(path)?;
             let decoder = GifDecoder::new(BufReader::new(f))?;
@@ -78,7 +80,6 @@ fn main() -> anyhow::Result<()> {
 
             let output = std::fs::File::create(&output_file)?;
             let mut writer = BufWriter::new(output);
-
 
             let mut encoder = Encoder::new(&mut writer, w as u16, h as u16, &[])?;
             encoder.set_repeat(Repeat::Infinite)?;
@@ -95,14 +96,17 @@ fn main() -> anyhow::Result<()> {
                 new_frame.delay = delay / 10;
                 encoder.write_frame(&new_frame)?;
             }
-        },
+        }
         _ => return Err(anyhow::anyhow!("Unsupported file format")),
     };
 
     Ok(())
 }
 
-fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> anyhow::Result<DynamicImage> {
+fn process(
+    mut img: DynamicImage,
+    expressions: Vec<(String, Vec<Token>)>,
+) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
     for val in &expressions {
@@ -130,13 +134,18 @@ fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> any
             for y in min_y..max_y {
                 let colors = img.get_pixel(x, y).to_rgba();
 
-                let result = eval::eval(EvalContext {
-                    tokens: tokens.clone(),
-                    size: (width, height),
-                    rgba: colors.0,
-                    saved_rgb: [sr, sg, sb],
-                    position: (x, y),
-                }, &img, rng.clone()).expect("Failed to evaluate");
+                let result = eval::eval(
+                    EvalContext {
+                        tokens: tokens.clone(),
+                        size: (width, height),
+                        rgba: colors.0,
+                        saved_rgb: [sr, sg, sb],
+                        position: (x, y),
+                    },
+                    &img,
+                    rng.clone(),
+                )
+                .expect("Failed to evaluate");
 
                 sr = result[0];
                 sg = result[1];
@@ -152,7 +161,12 @@ fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> any
 }
 
 fn get_format(file: &Path) -> image::ImageFormat {
-    match file.extension().expect("file extension").to_str().expect("to string") {
+    match file
+        .extension()
+        .expect("file extension")
+        .to_str()
+        .expect("to string")
+    {
         "png" => image::ImageFormat::Png,
         "jpg" | "jpeg" => image::ImageFormat::Jpeg,
         "gif" => image::ImageFormat::Gif,
@@ -166,5 +180,8 @@ fn get_format(file: &Path) -> image::ImageFormat {
 }
 
 fn get_output_extension(file: &Path) -> &str {
-    file.extension().expect("file extension").to_str().expect("to string")
+    file.extension()
+        .expect("file extension")
+        .to_str()
+        .expect("to string")
 }
