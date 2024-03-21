@@ -2,7 +2,7 @@
 
 use std::collections::VecDeque;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Token {
     Num(u8),
     Add,
@@ -61,29 +61,11 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     None => Some(digit as u8),
                 };
             }
-            '+' | '-' | '*' | '/' | '%' | '#' | '&' | '|' | ':' | '^' | '<' | '>' | '?' | '@' => {
+            c if char_to_token(c).is_some() => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
-                handle_operator(
-                    &mut operator_stack,
-                    &mut output_queue,
-                    match c {
-                        '+' => Token::Add,
-                        '-' => Token::Sub,
-                        '*' => Token::Mul,
-                        '/' => Token::Div,
-                        '%' => Token::Mod,
-                        '#' => Token::Pow,
-                        '&' => Token::BitAnd,
-                        '|' => Token::BitOr,
-                        ':' => Token::BitAndNot,
-                        '^' => Token::BitXor,
-                        '<' => Token::BitLShift,
-                        '>' => Token::BitRShift,
-                        '?' => Token::Greater,
-                        '@' => Token::Weight,
-                        _ => unreachable!(),
-                    },
-                );
+                if let Some(token) = char_to_token(c) {
+                    handle_operator(&mut operator_stack, &mut output_queue, token);
+                }
             }
             '(' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
@@ -177,6 +159,26 @@ fn valid_tok(tok: char) -> bool {
             | 'v'
             | 'd'
     )
+}
+
+fn char_to_token(c: char) -> Option<Token> {
+    match c {
+        '+' => Some(Token::Add),
+        '-' => Some(Token::Sub),
+        '*' => Some(Token::Mul),
+        '/' => Some(Token::Div),
+        '%' => Some(Token::Mod),
+        '#' => Some(Token::Pow),
+        '&' => Some(Token::BitAnd),
+        '|' => Some(Token::BitOr),
+        ':' => Some(Token::BitAndNot),
+        '^' => Some(Token::BitXor),
+        '<' => Some(Token::BitLShift),
+        '>' => Some(Token::BitRShift),
+        '?' => Some(Token::Greater),
+        '@' => Some(Token::Weight),
+        _ => None,
+    }
 }
 
 #[cfg(test)]

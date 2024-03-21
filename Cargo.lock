@@ -365,6 +365,7 @@ dependencies = [
  "clap",
  "gif",
  "image",
+ "once_cell",
  "rand 0.9.0-alpha.1",
 ]
 
