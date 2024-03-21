@@ -1,7 +1,8 @@
-use crate::parser::Token;
 use image::{DynamicImage, GenericImageView, Rgba};
 use rand::prelude::ThreadRng;
-use rand::{random, Rng};
+use rand::Rng;
+
+use crate::parser::Token;
 
 #[derive(Debug, Clone, Copy)]
 struct RgbSum {
@@ -304,14 +305,14 @@ pub fn eval(
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
                         None => {
-                            let x1 = random::<u32>() % 3;
-                            let y1 = random::<u32>() % 3;
+                            let x1 = rng.gen_range(0..=2) as u32;
+                            let y1 = rng.gen_range(0..=2) as u32;
 
-                            let x2 = random::<u32>() % 3;
-                            let y2 = random::<u32>() % 3;
+                            let x2 = rng.gen_range(0..=2) as u32;
+                            let y2 = rng.gen_range(0..=2) as u32;
 
-                            let x3 = random::<u32>() % 3;
-                            let y3 = random::<u32>() % 3;
+                            let x3 = rng.gen_range(0..=2) as u32;
+                            let y3 = rng.gen_range(0..=2) as u32;
 
                             let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
                                 true => input.get_pixel(x + x1, y + y1).0,
@@ -395,15 +396,15 @@ pub fn eval(
                         None => {
                             let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                            let rr = wrapping_vec_add_u32(vec![
+                            let rr = wrapping_vec_add_u32([
                                 boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r,
                                 boxed[6].r, boxed[7].r, boxed[8].r,
                             ]);
-                            let gg = wrapping_vec_add_u32(vec![
+                            let gg = wrapping_vec_add_u32([
                                 boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g,
                                 boxed[6].g, boxed[7].g, boxed[8].g,
                             ]);
-                            let bb = wrapping_vec_add_u32(vec![
+                            let bb = wrapping_vec_add_u32([
                                 boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b,
                                 boxed[6].b, boxed[7].b, boxed[8].b,
                             ]);
@@ -426,21 +427,18 @@ pub fn eval(
                         None => {
                             let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                            let r_m = max(vec![
+                            let r_m = max([
                                 boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r,
                                 boxed[6].r, boxed[7].r, boxed[8].r,
-                            ])
-                            .expect("max");
-                            let g_m = max(vec![
+                            ]);
+                            let g_m = max([
                                 boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g,
                                 boxed[6].g, boxed[7].g, boxed[8].g,
-                            ])
-                            .expect("max");
-                            let b_m = max(vec![
+                            ]);
+                            let b_m = max([
                                 boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b,
                                 boxed[6].b, boxed[7].b, boxed[8].b,
-                            ])
-                            .expect("max");
+                            ]);
 
                             let v_h = RgbSum {
                                 r: r_m,
@@ -461,21 +459,18 @@ pub fn eval(
                         None => {
                             let boxed = fetch_boxed(input, x as i32, y as i32, r, g, b);
 
-                            let r_m = min(vec![
+                            let r_m = min([
                                 boxed[0].r, boxed[1].r, boxed[2].r, boxed[3].r, boxed[5].r,
                                 boxed[6].r, boxed[7].r, boxed[8].r,
-                            ])
-                            .expect("min");
-                            let g_m = min(vec![
+                            ]);
+                            let g_m = min([
                                 boxed[0].g, boxed[1].g, boxed[2].g, boxed[3].g, boxed[5].g,
                                 boxed[6].g, boxed[7].g, boxed[8].g,
-                            ])
-                            .expect("min");
-                            let b_m = min(vec![
+                            ]);
+                            let b_m = min([
                                 boxed[0].b, boxed[1].b, boxed[2].b, boxed[3].b, boxed[5].b,
                                 boxed[6].b, boxed[7].b, boxed[8].b,
-                            ])
-                            .expect("min");
+                            ]);
 
                             let v_l = RgbSum {
                                 r: r_m,
@@ -598,15 +593,15 @@ fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rg
     boxed
 }
 
-fn max(vals: Vec<u8>) -> Option<u8> {
-    vals.iter().cloned().max()
+fn max(vals: [u8; 8]) -> u8 {
+    vals.iter().cloned().max().unwrap_or_default()
 }
 
-fn min(vals: Vec<u8>) -> Option<u8> {
-    vals.iter().cloned().min()
+fn min(vals: [u8; 8]) -> u8 {
+    vals.iter().cloned().min().unwrap_or_default()
 }
 
-fn wrapping_vec_add_u32(a: Vec<u8>) -> u32 {
+fn wrapping_vec_add_u32(a: [u8; 8]) -> u32 {
     let mut sum: u32 = 0;
     for i in a {
         sum = sum.wrapping_add(i as u32);
