@@ -39,7 +39,23 @@ impl SumSave {
     }
 }
 
-pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8, sr: u8, sg: u8, sb: u8, input: &DynamicImage, rng: &mut ThreadRng, tokens: Vec<Token>) -> Result<Rgba<u8>, String> {
+#[derive(Debug, Clone)]
+pub struct EvalContext {
+    pub tokens: Vec<Token>,
+    pub size: (u32, u32),
+    pub rgba: [u8; 4],
+    pub saved_rgb: [u8; 3],
+    pub position: (u32, u32),
+}
+
+pub fn eval(ctx: EvalContext, input: &DynamicImage,
+            mut rng: ThreadRng) -> Result<Rgba<u8>, String> {
+    let EvalContext { tokens, size, rgba, saved_rgb, position } = ctx;
+    let (width, height) = size;
+    let (x, y) = position;
+    let [r, g, b, a] = rgba;
+    let [sr, sg, sb] = saved_rgb;
+
     if a == 0 {
         return Ok(Rgba([0, 0, 0, 0]));
     }
@@ -79,7 +95,6 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
     };
 
     let mut saved = SumSave::new();
-    // let mut boxed: [RgbSum; 9] = [RgbSum { r: 0, g: 0, b: 0 }; 9];
 
     for tok in tokens {
         match tok {
@@ -181,7 +196,7 @@ pub fn eval(x: u32, y: u32, width: u32, height: u32, r: u8, g: u8, b: u8, a: u8,
                 stack.push(RgbSum { r: if a.r > b.r { 255 } else { 0 }, g: if a.g > b.g { 255 } else { 0 }, b: if a.b > b.b { 255 } else { 0 } });
             }
 
-            Token::CharToken(c) => {
+            Token::Char(c) => {
                 match c {
                     'c' => stack.push(RgbSum { r, g, b }),
                     'R' => stack.push(RgbSum { r: 255, g: 0, b: 0 }),

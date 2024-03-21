@@ -1,11 +1,12 @@
 use std::io::{BufReader, BufWriter};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use gif::{Encoder, Repeat};
 use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
 use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
+use crate::eval::EvalContext;
 use crate::parser::Token;
 
 mod parser;
@@ -31,9 +32,7 @@ fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     println!("Input File: {}", args.input);
 
-    // create path buffer
-    let path = std::path::PathBuf::from(&args.input);
-    // check if file exists
+    let path = Path::new(&args.input);
     if !path.exists() {
         return Err(anyhow::anyhow!("File does not exist"));
     }
@@ -52,8 +51,8 @@ fn main() -> anyhow::Result<()> {
         parsed.push((e.to_string(), tokens));
     }
 
-    let format = get_format(&path);
-    let output_extension = get_output_extension(&path);
+    let format = get_format(path);
+    let output_extension = get_output_extension(path);
     println!("Saving image");
 
     let output_file = match args.output {
@@ -61,7 +60,7 @@ fn main() -> anyhow::Result<()> {
         None => PathBuf::from(format!("output.{}", output_extension)),
     };
 
-    let img = ImageReader::open(&path)?.decode()?;
+    let img = ImageReader::open(path)?.decode()?;
     match format {
         image::ImageFormat::Png => {
             let out = process(img, parsed)?;
@@ -72,7 +71,7 @@ fn main() -> anyhow::Result<()> {
             out.save_with_format(output_file, format)?;
         },
         image::ImageFormat::Gif => {
-            let f = std::fs::File::open(&path)?;
+            let f = std::fs::File::open(path)?;
             let decoder = GifDecoder::new(BufReader::new(f))?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
@@ -125,16 +124,19 @@ fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> any
 
         let min_y = bounds.min_y();
         let max_y = bounds.max_y();
-        let mut rng = rand::thread_rng();
+        let rng = rand::thread_rng();
 
         for x in min_x..max_x {
             for y in min_y..max_y {
                 let colors = img.get_pixel(x, y).to_rgba();
-                let [r, g, b, a] = colors.0;
 
-                // The eval function is assumed to be synchronous and CPU-bound
-                let result = eval::eval(x, y, width, height, r, g, b, if a <= 0 { 255 } else { a }, sr, sg, sb, &img, &mut rng, tokens.clone())
-                    .expect("Failed to evaluate");
+                let result = eval::eval(EvalContext {
+                    tokens: tokens.clone(),
+                    size: (width, height),
+                    rgba: colors.0,
+                    saved_rgb: [sr, sg, sb],
+                    position: (x, y),
+                }, &img, rng.clone()).expect("Failed to evaluate");
 
                 sr = result[0];
                 sg = result[1];
@@ -149,7 +151,7 @@ fn process(mut img: DynamicImage, expressions: Vec<(String, Vec<Token>)>) -> any
     Ok(output_image)
 }
 
-fn get_format(file: &PathBuf) -> image::ImageFormat {
+fn get_format(file: &Path) -> image::ImageFormat {
     match file.extension().expect("file extension").to_str().expect("to string") {
         "png" => image::ImageFormat::Png,
         "jpg" | "jpeg" => image::ImageFormat::Jpeg,
@@ -163,6 +165,6 @@ fn get_format(file: &PathBuf) -> image::ImageFormat {
     }
 }
 
-fn get_output_extension(file: &PathBuf) -> &str {
+fn get_output_extension(file: &Path) -> &str {
     file.extension().expect("file extension").to_str().expect("to string")
 }
