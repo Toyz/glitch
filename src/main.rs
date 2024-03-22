@@ -8,10 +8,10 @@ use image::io::Reader as ImageReader;
 use image::{
     AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
 };
+use rayon::prelude::*;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
-use rayon::prelude::*;
 
 mod bounds;
 mod eval;
@@ -225,7 +225,10 @@ fn main() -> anyhow::Result<()> {
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
 
                 new_frame.delay = delay / 10;
-                new_frames.lock().expect("failed to unlock").push((i, new_frame));
+                new_frames
+                    .lock()
+                    .expect("failed to unlock")
+                    .push((i, new_frame));
             });
 
             let mut frames = new_frames.into_inner().expect("Failed to get frames");
