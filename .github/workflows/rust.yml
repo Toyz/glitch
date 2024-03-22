@@ -28,7 +28,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build for release
-        run:  cargo build --verbose --release --target-dir target/release
+        run:  cargo build --verbose --release --target-dir target
   
   release:
     needs: build
