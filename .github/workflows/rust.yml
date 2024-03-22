@@ -22,7 +22,7 @@ jobs:
         run: cargo clippy --verbose
 
   build:
-    if: github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     needs: test
     runs-on: ${{ matrix.os }}
     strategy:
@@ -40,7 +40,7 @@ jobs:
             target/release/glitch${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')  && github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v') && github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     steps:
