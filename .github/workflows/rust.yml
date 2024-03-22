@@ -40,14 +40,9 @@ jobs:
   release:
     if: startsWith(github.ref, 'refs/tags/v')  && github.ref == 'refs/heads/main'
     needs: build
-    runs-on: ubuntu-latest # Any OS is fine
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Download build artifacts (ubuntu)
-        uses: actions/download-artifact@v3
-        with:
-          name: glitch-artifacts-ubuntu-latest
-          path: target/ubuntu
       - name: Download build artifacts (macOS)
         uses: actions/download-artifact@v3
         with:
@@ -58,6 +53,17 @@ jobs:
         with:
           name: glitch-artifacts-windows-latest
           path: target/windows
+      - name: Download build artifacts (ubuntu)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-ubuntu-latest
+          path: target/ubuntu
+      - name: Create ZIP archive (Ubuntu)
+        run: zip -jr target/ubuntu.zip target/ubuntu/
+      - name: Create ZIP archive (macOS)
+        run: zip -jr target/macos.zip target/macos/
+      - name: Create ZIP archive (Windows)
+        run: zip -jr target/windows.zip target/windows/
       - name: Create Release
         uses: softprops/action-gh-release@v1
         env:
@@ -68,9 +74,9 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            target/ubuntu/glitch* 
-            target/macos/glitch* 
-            target/windows/glitch*
+            target/ubuntu.zip 
+            target/macos.zip 
+            target/windows.zip
 
   prerelease:
     if: ${{ !startsWith(github.ref, 'refs/tags/v') }} && github.ref == 'refs/heads/main'
@@ -78,11 +84,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - name: Download build artifacts (ubuntu)
-        uses: actions/download-artifact@v3
-        with:
-          name: glitch-artifacts-ubuntu-latest
-          path: target/ubuntu
       - name: Download build artifacts (macOS)
         uses: actions/download-artifact@v3
         with:
@@ -93,6 +94,17 @@ jobs:
         with:
           name: glitch-artifacts-windows-latest
           path: target/windows
+      - name: Download build artifacts (ubuntu)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-ubuntu-latest
+          path: target/ubuntu
+      - name: Create ZIP archive (Ubuntu)
+        run: zip -jr target/ubuntu.zip target/ubuntu/
+      - name: Create ZIP archive (macOS)
+        run: zip -jr target/macos.zip target/macos/
+      - name: Create ZIP archive (Windows)
+        run: zip -jr target/windows.zip target/windows/
       - name: Create Pre-Release
         uses: softprops/action-gh-release@v1
         env:
@@ -100,8 +112,9 @@ jobs:
         with:
           tag_name: prerelease
           name: Pre-Release
+          draft: true
           prerelease: true
           files: |
-            target/ubuntu/glitch* 
-            target/macos/glitch* 
-            target/windows/glitch*
+            target/ubuntu.zip 
+            target/macos.zip 
+            target/windows.zip
