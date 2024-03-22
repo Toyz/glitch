@@ -40,7 +40,7 @@ jobs:
             target/release/glitch${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v') && github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -81,7 +81,7 @@ jobs:
             target/windows.zip
 
   prerelease:
-    if: ${{ !startsWith(github.ref, 'refs/tags/v') }} && github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     steps:
