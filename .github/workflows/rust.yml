@@ -28,20 +28,8 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build for release
-        run: |
-          if [[ $RUNNER_OS == 'Windows' ]]; then
-            cargo build --verbose --release --target x86_64-pc-windows-gnu
-            mv target/x86_64-pc-windows-gnu/release/glitch.exe target/release/glitch.exe
-          elif [[ $RUNNER_OS == 'macOS' ]]; then
-            # Potentially install macOS cross-compilation tools here
-            # ... 
-            cargo build --verbose --release --target <macOS target>
-            mv target/<macOS target>/release/glitch target/release/glitch 
-          else 
-            cargo build --verbose --release
-            mv target/release/glitch target/release/glitch 
-          fi
-
+        run:  cargo build --verbose --release --target-dir target/release
+  
   release:
     needs: build
     runs-on: ${{ matrix.os }}
