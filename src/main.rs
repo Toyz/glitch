@@ -1,17 +1,19 @@
-use crate::eval::EvalContext;
-use crate::parser::Token;
-use ansiterm::Color;
-use clap::{arg, Parser};
-use gif::{Encoder, Repeat};
-use image::codecs::gif::GifDecoder;
-use image::io::Reader as ImageReader;
-use image::{
-    AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
-};
-use rayon::prelude::*;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
+
+use ansiterm::Color;
+use clap::{arg, Parser};
+use gif::{Encoder, Repeat};
+use image::{
+    AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
+};
+use image::codecs::gif::GifDecoder;
+use image::io::Reader as ImageReader;
+use rayon::prelude::*;
+
+use crate::eval::EvalContext;
+use crate::parser::Token;
 
 mod bounds;
 mod eval;
@@ -295,7 +297,7 @@ fn process(
     expressions: Vec<(String, Vec<Token>)>,
     args: &Args,
 ) -> anyhow::Result<DynamicImage> {
-    let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
+    let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
 
     for val in &expressions {
         let (_, tokens) = val;
