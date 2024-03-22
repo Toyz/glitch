@@ -23,6 +23,7 @@ struct SumSave {
     v_b: Option<RgbSum>,
     v_e: Option<RgbSum>,
     v_r: Option<RgbSum>,
+    v_g: Option<RgbSum>,
     v_h: Option<RgbSum>,
     v_v: Option<RgbSum>,
     v_d: Option<RgbSum>,
@@ -119,30 +120,22 @@ pub fn eval(
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
                 stack.push(RgbSum::new(
-                   a.r.wrapping_mul(b.r),
-                   a.g.wrapping_mul(b.g),
-                   a.b.wrapping_mul(b.b),
+                    a.r.wrapping_mul(b.r),
+                    a.g.wrapping_mul(b.g),
+                    a.b.wrapping_mul(b.b),
                 ));
             }
 
             Token::Div => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    div(a.r, b.r),
-                    div(a.g, b.g),
-                    div(a.b, b.b),
-                ));
+                stack.push(RgbSum::new(div(a.r, b.r), div(a.g, b.g), div(a.b, b.b)));
             }
 
             Token::Mod => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                   modu(a.r, b.r),
-                   modu(a.g, b.g),
-                   modu(a.b, b.b),
-                ));
+                stack.push(RgbSum::new(modu(a.r, b.r), modu(a.g, b.g), modu(a.b, b.b)));
             }
 
             Token::Pow => {
@@ -158,21 +151,13 @@ pub fn eval(
             Token::BitAnd => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                   a.r & b.r,
-                   a.g & b.g,
-                   a.b & b.b,
-                ));
+                stack.push(RgbSum::new(a.r & b.r, a.g & b.g, a.b & b.b));
             }
 
             Token::BitOr => {
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    a.r | b.r,
-                    a.g | b.g,
-                    a.b | b.b,
-                ));
+                stack.push(RgbSum::new(a.r | b.r, a.g | b.g, a.b | b.b));
             }
 
             Token::BitAndNot => {
@@ -298,6 +283,42 @@ pub fn eval(
                     };
 
                     stack.push(v_r);
+                }
+                'g' => {
+                    let v_g = match saved.v_g {
+                        Some(v_g) => v_g,
+                        None => {
+                            let x1 = rng.gen_range(0..=width);
+                            let y1 = rng.gen_range(0..=height);
+
+                            let x2 = rng.gen_range(0..=width);
+                            let y2 = rng.gen_range(0..=height);
+
+                            let x3 = rng.gen_range(0..=width);
+                            let y3 = rng.gen_range(0..=height);
+
+                            let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
+                                true => input.get_pixel(x + x1, y + y1).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let p2 = match is_in_bounds(x + x2, y + y2, width, height) {
+                                true => input.get_pixel(x + x2, y + y2).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let p3 = match is_in_bounds(x + x3, y + y3, width, height) {
+                                true => input.get_pixel(x + x3, y + y3).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let v_g = RgbSum::new(p1[0], p2[1], p3[2]);
+                            saved.v_g = Some(v_g);
+                            v_g
+                        }
+                    };
+
+                    stack.push(v_g);
                 }
                 'e' => {
                     let v_e = match saved.v_e {

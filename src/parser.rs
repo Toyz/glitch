@@ -91,7 +91,10 @@ impl std::fmt::Display for Token {
                     content = Some("Previous Saved Pixel Value");
                 }
                 'r' => {
-                    content = Some("Random Color");
+                    content = Some("Random Color in 3x3 Grid");
+                }
+                'g' => {
+                    content = Some("Random Color in the Entire Image");
                 }
                 'x' => {
                     content = Some("X Coordinate");
@@ -300,6 +303,7 @@ fn valid_tok(tok: char) -> bool {
             | 'h'
             | 'v'
             | 'd'
+            | 'g'
     )
 }
 
