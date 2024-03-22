@@ -46,17 +46,17 @@ jobs:
       - name: Download build artifacts (ubuntu)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-ubuntu
+          name: glitch-artifacts-ubuntu-latest
           path: target/ubuntu
       - name: Download build artifacts (macOS)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-macos
+          name: glitch-artifacts-macos-latest
           path: target/macos
       - name: Download build artifacts (Windows)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-windows
+          name: glitch-artifacts-windows-latest
           path: target/windows
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -81,17 +81,17 @@ jobs:
       - name: Download build artifacts (ubuntu)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-ubuntu
+          name: glitch-artifacts-ubuntu-latest
           path: target/ubuntu
       - name: Download build artifacts (macOS)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-macos
+          name: glitch-artifacts-macos-latest
           path: target/macos
       - name: Download build artifacts (Windows)
         uses: actions/download-artifact@v3
         with:
-          name: glitch-artifacts-windows
+          name: glitch-artifacts-windows-latest
           path: target/windows
       - name: Create Pre-Release
         uses: softprops/action-gh-release@v1
