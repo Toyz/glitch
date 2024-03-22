@@ -92,7 +92,7 @@ impl std::fmt::Display for Token {
                 }
                 'r' => {
                     content = Some("Random Color in 3x3 Grid");
-                },
+                }
                 't' => {
                     content = Some("Random Color in 6x6 Grid");
                 }

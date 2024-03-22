@@ -5,11 +5,9 @@ use std::sync::Mutex;
 use ansiterm::Color;
 use clap::{arg, Parser};
 use gif::{Encoder, Repeat};
-use image::{
-    AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel,
-};
 use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
+use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
 use rayon::prelude::*;
 
 use crate::eval::EvalContext;
@@ -228,7 +226,8 @@ fn main() -> anyhow::Result<()> {
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(img.into(), parsed.clone(), &cloned_args).expect("Failed to process frame");
+                let out = process(img.into(), parsed.clone(), &cloned_args)
+                    .expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
