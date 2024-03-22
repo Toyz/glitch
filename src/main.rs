@@ -10,6 +10,8 @@ use image::{
 };
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
+use rayon::prelude::*;
 
 mod bounds;
 mod eval;
@@ -210,17 +212,26 @@ fn main() -> anyhow::Result<()> {
             let mut encoder = Encoder::new(&mut writer, w as u16, h as u16, &[])?;
             encoder.set_repeat(Repeat::Infinite)?;
 
-            for frame in &frames {
+            let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
+
+            (0..frames.len()).into_par_iter().for_each(|i| {
+                let frame = frames.get(i).expect("Failed to get frame");
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(img.into(), parsed.clone())?;
+                let out = process(img.into(), parsed.clone()).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
 
                 new_frame.delay = delay / 10;
-                encoder.write_frame(&new_frame)?;
+                new_frames.lock().expect("failed to unlock").push((i, new_frame));
+            });
+
+            let mut frames = new_frames.into_inner().expect("Failed to get frames");
+            frames.sort_by(|a, b| a.0.cmp(&b.0));
+            for (_, frame) in frames {
+                encoder.write_frame(&frame)?;
             }
         }
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
