@@ -92,6 +92,9 @@ impl std::fmt::Display for Token {
                 }
                 'r' => {
                     content = Some("Random Color in 3x3 Grid");
+                },
+                't' => {
+                    content = Some("Random Color in 6x6 Grid");
                 }
                 'g' => {
                     content = Some("Random Color in the Entire Image");
@@ -304,6 +307,7 @@ fn valid_tok(tok: char) -> bool {
             | 'v'
             | 'd'
             | 'g'
+            | 't'
     )
 }
 

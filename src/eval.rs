@@ -23,6 +23,7 @@ struct SumSave {
     v_b: Option<RgbSum>,
     v_e: Option<RgbSum>,
     v_r: Option<RgbSum>,
+    v_t: Option<RgbSum>,
     v_g: Option<RgbSum>,
     v_h: Option<RgbSum>,
     v_v: Option<RgbSum>,
@@ -288,6 +289,44 @@ pub fn eval(
                     };
 
                     stack.push(v_r);
+                }
+                't' => {
+                    let v_t = match saved.v_t {
+                        Some(v_t) => v_t,
+                        None => {
+                            let x1 = rng.gen_range(0..=5) as u32;
+                            let y1 = rng.gen_range(0..=5) as u32;
+
+                            let x2 = rng.gen_range(0..=5) as u32;
+                            let y2 = rng.gen_range(0..=5) as u32;
+
+                            let x3 = rng.gen_range(0..=5) as u32;
+                            let y3 = rng.gen_range(0..=5) as u32;
+
+                            let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
+                                true => input.get_pixel(x + x1, y + y1).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let p2 = match is_in_bounds(x + x2, y + y2, width, height) {
+                                true => input.get_pixel(x + x2, y + y2).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let p3 = match is_in_bounds(x + x3, y + y3, width, height) {
+                                true => input.get_pixel(x + x3, y + y3).0,
+                                false => [0, 0, 0, 0],
+                            };
+
+                            let v_t = RgbSum::new(p1[0], p2[1], p3[2]);
+                            if !ignore_state {
+                                saved.v_t = Some(v_t);
+                            }
+                            v_t
+                        }
+                    };
+
+                    stack.push(v_t);
                 }
                 'g' => {
                     let v_g = match saved.v_g {
