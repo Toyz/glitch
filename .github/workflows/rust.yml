@@ -29,13 +29,13 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - name: Build for release
-        run: cargo build --verbose --release -o target/release
+        run: cargo build --verbose --release -target-dir target
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v3
         with:
           name: glitch-artifacts-${{ matrix.os }}
           path: target/release
-  
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')  && github.ref == 'refs/heads/main'
     needs: build
@@ -80,4 +80,4 @@ jobs:
           files: |
             target/release/glitch* 
             target/release/*.pdb 
-            !target/release/*.d 
+            !target/release/*.d
