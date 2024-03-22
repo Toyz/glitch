@@ -1,7 +1,7 @@
 use crate::eval::EvalContext;
 use crate::parser::Token;
 use ansiterm::Color;
-use clap::Parser;
+use clap::{arg, Parser};
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
@@ -17,7 +17,7 @@ mod bounds;
 mod eval;
 mod parser;
 
-#[derive(Parser, Debug)]
+#[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None)]
 struct Args {
     /// The expression to evaluate
@@ -27,17 +27,24 @@ struct Args {
     /// The input file
     input: String,
 
-    /// optional output file
+    /// Optional output file
     #[arg(short, long)]
     output: Option<String>,
 
-    /// open the output file after processing
+    /// Open the output file after processing
     #[arg(long, default_value = "false")]
     open: bool,
+
+    /// Disable the state during processing
+    #[arg(long, default_value = "false")]
+    no_state: bool,
 }
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
+    // If we want to pass the arguments to a function, we need to clone them
+    let cloned_args = args.clone();
+
     let mut writer = std::io::stdout();
     let is_tty = std::io::IsTerminal::is_terminal(&writer);
     write_painted(
@@ -170,7 +177,7 @@ fn main() -> anyhow::Result<()> {
                 (true, false),
                 is_tty,
             )?;
-            let out = process(img, parsed)?;
+            let out = process(img, parsed, &cloned_args)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Jpeg => {
@@ -182,7 +189,7 @@ fn main() -> anyhow::Result<()> {
                 is_tty,
             )?;
 
-            let out = process(img, parsed)?;
+            let out = process(img, parsed, &cloned_args)?;
             out.save_with_format(output_file, format)?;
         }
         image::ImageFormat::Gif => {
@@ -219,7 +226,7 @@ fn main() -> anyhow::Result<()> {
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(img.into(), parsed.clone()).expect("Failed to process frame");
+                let out = process(img.into(), parsed.clone(), &cloned_args).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -286,6 +293,7 @@ fn write_painted(
 fn process(
     mut img: DynamicImage,
     expressions: Vec<(String, Vec<Token>)>,
+    args: &Args,
 ) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
@@ -318,6 +326,7 @@ fn process(
                         rgba: colors.0,
                         saved_rgb: [sr, sg, sb],
                         position: (x, y),
+                        ignore_state: args.no_state,
                     },
                     &img,
                     rng.clone(),

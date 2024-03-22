@@ -57,7 +57,7 @@ impl std::fmt::Display for Token {
         let mut content: Option<&str> = None;
         match self {
             Token::Char(ch) => match ch {
-                'C' => {
+                'c' => {
                     content = Some("Current Pixel Value");
                 }
                 'b' => {

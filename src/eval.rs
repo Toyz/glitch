@@ -38,6 +38,8 @@ pub struct EvalContext {
     pub rgba: [u8; 4],
     pub saved_rgb: [u8; 3],
     pub position: (u32, u32),
+
+    pub ignore_state: bool,
 }
 
 pub fn eval(
@@ -51,6 +53,7 @@ pub fn eval(
         rgba,
         saved_rgb,
         position,
+        ignore_state,
     } = ctx;
     let (width, height) = size;
     let (x, y) = position;
@@ -277,7 +280,9 @@ pub fn eval(
                             };
 
                             let v_r = RgbSum::new(p1[0], p2[1], p3[2]);
-                            saved.v_r = Some(v_r);
+                            if !ignore_state {
+                                saved.v_r = Some(v_r);
+                            }
                             v_r
                         }
                     };
@@ -313,7 +318,10 @@ pub fn eval(
                             };
 
                             let v_g = RgbSum::new(p1[0], p2[1], p3[2]);
-                            saved.v_g = Some(v_g);
+
+                            if !ignore_state {
+                                saved.v_g = Some(v_g);
+                            }
                             v_g
                         }
                     };
@@ -384,7 +392,9 @@ pub fn eval(
                             ]);
 
                             let v_b = RgbSum::new((rr / 9) as u8, (gg / 9) as u8, (bb / 9) as u8);
-                            saved.v_b = Some(v_b);
+                            if !ignore_state {
+                                saved.v_b = Some(v_b);
+                            }
                             v_b
                         }
                     };
@@ -411,7 +421,10 @@ pub fn eval(
                             ]);
 
                             let v_h = RgbSum::new(r_m, g_m, b_m);
-                            saved.v_high = Some(v_h);
+
+                            if !ignore_state {
+                                saved.v_high = Some(v_h);
+                            }
                             v_h
                         }
                     };
@@ -438,7 +451,9 @@ pub fn eval(
                             ]);
 
                             let v_l = RgbSum::new(r_m, g_m, b_m);
-                            saved.v_low = Some(v_l);
+                            if !ignore_state {
+                                saved.v_low = Some(v_l);
+                            }
                             v_l
                         }
                     };
@@ -458,7 +473,9 @@ pub fn eval(
                             let pixel = input.get_pixel(h, y).0;
 
                             let v_h = RgbSum::new(pixel[0], pixel[1], pixel[2]);
-                            saved.v_h = Some(v_h);
+                            if !ignore_state {
+                                saved.v_h = Some(v_h);
+                            }
                             v_h
                         }
                     };
@@ -473,7 +490,9 @@ pub fn eval(
                             let pixel = input.get_pixel(x, v).0;
 
                             let v_v = RgbSum::new(pixel[0], pixel[1], pixel[2]);
-                            saved.v_v = Some(v_v);
+                            if !ignore_state {
+                                saved.v_v = Some(v_v);
+                            }
                             v_v
                         }
                     };
@@ -489,7 +508,9 @@ pub fn eval(
                             let pixel = input.get_pixel(x, y).0;
 
                             let v_d = RgbSum::new(pixel[0], pixel[1], pixel[2]);
-                            saved.v_d = Some(v_d);
+                            if !ignore_state {
+                                saved.v_d = Some(v_d);
+                            }
                             v_d
                         }
                     };
