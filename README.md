@@ -2,13 +2,16 @@
 
 This is a simple port of https://github.com/sug0/go-glitch to rust.
 
-Below is copied 1:1 of what is in the go project.
-
 ## What is the deal with the expressions?
 
 You can think of the image as a functor that you map an expression to, for each pixel's component colors,
 returning a new one. The allowed operators are:
 
+### Custom operators
+* `t` a pixel made up of a random color component from the neighboring 16 pixels
+* `g` a pixel made up of a random color component from random locations in the image
+
+###  Ported from go-glitch
 * `+` plus
 * `-` minus
 * `*` multiplication
@@ -38,8 +41,6 @@ The expressions are made up of operators, numbers, parenthesis, and a set of par
 * `B` the blue color (i.e. rgb(0, 0, 255))
 * `s` the value of each pixel's last saved evaluated expression
 * `r` a pixel made up of a random color component from the neighboring 8 pixels
-* `t` a pixel made up of a random color component from the neighboring 16 pixels
-* `g` a pixel made up of a random color component from random locations in the image
 * `e` the difference of all pixels in a box, creating an edge-like effect
 * `x` the current x coordinate being evaluated normalized in the range `[0, 255]`
 * `y` the current y coordinate being evaluated normalized in the range `[0, 255]`
