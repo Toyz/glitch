@@ -10,15 +10,61 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
-
+  test:
     runs-on: ubuntu-latest
-
     steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
-    - name: Run tests
-      run: cargo test --verbose
-    - name: Run clippy
-      run: cargo clippy --verbose
+      - uses: actions/checkout@v3
+      - name: Run tests
+        run: cargo test --verbose
+      - name: Run clippy
+        run: cargo clippy --verbose
+
+  build:
+    needs: test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Build for release
+        run: |
+          if [[ $RUNNER_OS == 'Windows' ]]; then
+            cargo build --verbose --release --target x86_64-pc-windows-gnu
+            mv target/x86_64-pc-windows-gnu/release/glitch.exe target/release/glitch.exe
+          elif [[ $RUNNER_OS == 'macOS' ]]; then
+            # Potentially install macOS cross-compilation tools here
+            # ... 
+            cargo build --verbose --release --target <macOS target>
+            mv target/<macOS target>/release/glitch target/release/glitch 
+          else 
+            cargo build --verbose --release
+            mv target/release/glitch target/release/glitch 
+          fi
+
+  release:
+    needs: build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v3
+      - name: Create Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: pre-release-v${{ github.sha }}
+          release_name: Pre-Release ${{ matrix.os }}
+          draft: true
+          prerelease: true
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/release/glitch${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+          asset_name: glitch-$os
+          asset_content_type: application/zip
