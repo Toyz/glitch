@@ -256,14 +256,14 @@ pub fn eval(
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
                         None => {
-                            let x1 = rng.gen_range(0..=2) as u32;
-                            let y1 = rng.gen_range(0..=2) as u32;
+                            let x1 = rng.gen_range(-1..=1) as u32;
+                            let y1 = rng.gen_range(-1..=1) as u32;
 
-                            let x2 = rng.gen_range(0..=2) as u32;
-                            let y2 = rng.gen_range(0..=2) as u32;
+                            let x2 = rng.gen_range(-1..=1) as u32;
+                            let y2 = rng.gen_range(-1..=1) as u32;
 
-                            let x3 = rng.gen_range(0..=2) as u32;
-                            let y3 = rng.gen_range(0..=2) as u32;
+                            let x3 = rng.gen_range(-1..=1) as u32;
+                            let y3 = rng.gen_range(-1..=1) as u32;
 
                             let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
                                 true => input.get_pixel(x + x1, y + y1).0,
@@ -294,14 +294,14 @@ pub fn eval(
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
                         None => {
-                            let x1 = rng.gen_range(0..=5) as u32;
-                            let y1 = rng.gen_range(0..=5) as u32;
+                            let x1 = rng.gen_range(-2..=2) as u32;
+                            let y1 = rng.gen_range(-2..=2) as u32;
 
-                            let x2 = rng.gen_range(0..=5) as u32;
-                            let y2 = rng.gen_range(0..=5) as u32;
+                            let x2 = rng.gen_range(-2..=2) as u32;
+                            let y2 = rng.gen_range(-2..=2) as u32;
 
-                            let x3 = rng.gen_range(0..=5) as u32;
-                            let y3 = rng.gen_range(0..=5) as u32;
+                            let x3 = rng.gen_range(-2..=2) as u32;
+                            let y3 = rng.gen_range(-2..=2) as u32;
 
                             let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
                                 true => input.get_pixel(x + x1, y + y1).0,
