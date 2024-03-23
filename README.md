@@ -10,7 +10,11 @@ returning a new one. The allowed operators are:
 ### Custom operators
 * `t` a pixel made up of a random color component from the neighboring 16 pixels
 * `g` a pixel made up of a random color component from random locations in the image
-
+* `r{Num}` a pixel made up of a random color component from the neighboring `Num` pixels
+* `R{Num}` the red color component defined by `Num` (i.e. `R255` is the same as `R`)
+* `G{Num}` the green color component defined by `Num` (i.e. `G255` is the same as `G`)
+* `B{Num}` the blue color component defined by `Num` (i.e. `B255` is the same as `B`)
+* 
 ###  Ported from go-glitch
 * `+` plus
 * `-` minus
