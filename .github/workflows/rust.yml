@@ -19,7 +19,7 @@ jobs:
       - name: Run tests
         run: cargo test --verbose
       - name: Run clippy
-        run: cargo clippy --verbose
+        run: cargo clippy --verbose -- -D warnings
 
   build:
     if: github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')

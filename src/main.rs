@@ -1,19 +1,18 @@
-use std::ffi::OsStr;
-use std::io::{BufReader, BufWriter, Write};
-use std::path::{Path, PathBuf};
-use std::sync::Mutex;
-
-use ansiterm::Color;
-use clap::{arg, Parser};
-use gif::{Encoder, Repeat};
-use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, ImageFormat, Pixel};
-use image::codecs::gif::GifDecoder;
-use image::io::Reader as ImageReader;
-use rayon::prelude::*;
-
 use crate::eval::EvalContext;
 use crate::parser::Token;
-
+use ansiterm::Color;
+use clap::Parser;
+use gif::{Encoder, Repeat};
+use image::codecs::gif::GifDecoder;
+use image::{
+    AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder,
+    ImageFormat, Pixel,
+};
+use rayon::prelude::*;
+use std::ffi::OsStr;
+use std::io::{BufReader, BufWriter, Read, Write};
+use std::path::Path;
+use std::sync::Mutex;
 mod bounds;
 mod eval;
 mod parser;
@@ -44,17 +43,25 @@ struct Args {
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     // If we want to pass the arguments to a function, we need to clone them
-    let cloned_args = args.clone();
-
     let mut writer = std::io::stdout();
     let is_tty = std::io::IsTerminal::is_terminal(&writer);
-    write_painted(
-        &mut writer,
-        " Input File: ",
-        Color::BrightPurple,
-        (true, true),
-        is_tty,
-    )?;
+    if args.input.starts_with("http") {
+        write_painted(
+            &mut writer,
+            " Downloading Image: ",
+            Color::BrightGreen,
+            (true, false),
+            is_tty,
+        )?;
+    } else {
+        write_painted(
+            &mut writer,
+            " Input File: ",
+            Color::BrightPurple,
+            (true, true),
+            is_tty,
+        )?;
+    }
     write_painted(
         &mut writer,
         &args.input,
@@ -62,40 +69,6 @@ fn main() -> anyhow::Result<()> {
         (false, false),
         is_tty,
     )?;
-    let path = Path::new(&args.input);
-    if !path.exists() {
-        write_painted(
-            &mut writer,
-            "\nFile does not exist\n",
-            Color::Red,
-            (true, true),
-            is_tty,
-        )?;
-        return Ok(());
-    }
-    
-    if !path.is_file() {
-        write_painted(
-            &mut writer,
-            "\nPath is not a file\n",
-            Color::Red,
-            (true, true),
-            is_tty,
-        )?;
-        return Ok(());
-    }
-    
-    if args.expressions.is_empty() {
-        write_painted(
-            &mut writer,
-            "\nNo expressions provided\n",
-            Color::Red,
-            (true, true),
-            is_tty,
-        )?;
-        return Ok(());
-    }
-
     write_painted(
         &mut writer,
         "\n\nParsing expressions...\n",
@@ -151,10 +124,8 @@ fn main() -> anyhow::Result<()> {
                     .unwrap_or_default();
             }
         });
-
         parsed.push((e.to_string(), tokens));
     }
-
     write_painted(
         &mut writer,
         "\n\nConsuming Expressions...\n\n",
@@ -162,92 +133,115 @@ fn main() -> anyhow::Result<()> {
         (true, false),
         is_tty,
     )?;
-    let output_extension = get_output_extension(path);
+    handle_image(&args, &mut writer, &parsed, is_tty)?;
+    Ok(())
+}
 
-    let output_file = match args.output {
-        Some(file) => PathBuf::from(file),
-        None => PathBuf::from(format!("output.{}", output_extension)),
+fn download_image(url: &str) -> anyhow::Result<Vec<u8>> {
+    let response = reqwest::blocking::get(url)?;
+    let bytes = response.bytes()?;
+    let img = bytes.into_iter().collect::<Vec<u8>>();
+    Ok(img)
+}
+
+fn handle_image(
+    args: &Args,
+    writer: &mut impl Write,
+    parsed: &[(String, Vec<Token>)],
+    is_tty: bool,
+) -> anyhow::Result<(), anyhow::Error> {
+    let img = match &args.input {
+        file if file.starts_with("http") => download_image(&args.input)?,
+        file => {
+            let path = Path::new(&file);
+            let reader = std::fs::File::open(path)?;
+            let reader = BufReader::new(reader);
+            reader
+                .bytes()
+                .collect::<Result<Vec<u8>, std::io::Error>>()?
+        }
     };
-    let output_file = output_file.as_path();
-
-    let img = ImageReader::open(path)?.decode()?;
+    let name = match &args.input {
+        file if file.starts_with("http") => file.split('/').last().expect("last").to_string(),
+        file => Path::new(&file)
+            .file_name()
+            .expect("file name")
+            .to_str()
+            .expect("Unable to get filename")
+            .to_string(),
+    };
     write_painted(
-        &mut writer,
+        writer,
         "\t Processing Image: ",
         Color::BrightGreen,
         (true, false),
         is_tty,
     )?;
     write_painted(
-        &mut writer,
-        format!(
-            "{}\n",
-            &path.file_name().expect("Must be file").to_str().unwrap()
-        )
-        .as_str(),
+        writer,
+        format!("{}\n", &name).as_str(),
         Color::RGB(255, 165, 0),
         (false, false),
         is_tty,
     )?;
-    write_painted(
-        &mut writer,
-        "\tSize:  ",
-        Color::BrightGreen,
-        (true, false),
-        is_tty,
-    )?;
-    writer.write_fmt(format_args!("{} x {}\n", img.width(), img.height()))?;
-    let format = get_format(path).expect("Failed to get format");
-
+    let format = get_format(&name);
+    let output = match &args.output {
+        Some(ref file) => file.to_owned(),
+        None => {
+            let ext = match format {
+                Some(image::ImageFormat::Png) => "png",
+                Some(image::ImageFormat::Jpeg) => "jpg",
+                Some(image::ImageFormat::Gif) => "gif",
+                _ => "png",
+            };
+            format!("output.{}", ext)
+        }
+    };
     match format {
-        ImageFormat::Png => {
+        Some(ImageFormat::Png) => {
             write_painted(
-                &mut writer,
+                writer,
                 "\tProcessing mode: 󰸭 PNG\n",
                 Color::BrightGreen,
                 (true, false),
                 is_tty,
             )?;
-            let out = process(img, parsed, &cloned_args)?;
-            out.save_with_format(output_file, format)?;
+            let out = process(img, parsed, args.no_state)?;
+            out.save_with_format(output.clone(), format.unwrap())?;
         }
-        ImageFormat::Jpeg => {
+        Some(ImageFormat::Jpeg) => {
             write_painted(
-                &mut writer,
+                writer,
                 "\tProcessing mode: 󰈥 JPEG\n",
                 Color::BrightGreen,
                 (true, false),
                 is_tty,
             )?;
-
-            let out = process(img, parsed, &cloned_args)?;
-            out.save_with_format(output_file, format)?;
+            let out = process(img, parsed, args.no_state)?;
+            out.save_with_format(output.clone(), format.unwrap())?;
         }
-        ImageFormat::Gif => {
+        Some(ImageFormat::Gif) => {
             write_painted(
-                &mut writer,
+                writer,
                 "\tProcessing mode: 󰵸 GIF\n\n",
                 Color::BrightGreen,
                 (true, false),
                 is_tty,
             )?;
-
-            let f = std::fs::File::open(path)?;
-            let decoder = GifDecoder::new(BufReader::new(f))?;
+            let mut reader = std::io::Cursor::new(img);
+            let decoder = GifDecoder::new(&mut reader)?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
             write_painted(
-                &mut writer,
+                writer,
                 format!("Processing {} frames...\n\n", frames.len()).as_str(),
                 Color::BrightCyan,
                 (true, true),
                 is_tty,
             )?;
-
-            let output = std::fs::File::create(output_file)?;
-            let mut writer = BufWriter::new(output);
-
-            let mut encoder = Encoder::new(&mut writer, w as u16, h as u16, &[])?;
+            let output = std::fs::File::create(output.clone())?;
+            let mut img_writer = BufWriter::new(output);
+            let mut encoder = Encoder::new(&mut img_writer, w as u16, h as u16, &[])?;
             encoder.set_repeat(Repeat::Infinite)?;
 
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
@@ -257,8 +251,14 @@ fn main() -> anyhow::Result<()> {
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(img.into(), parsed.clone(), &cloned_args)
-                    .expect("Failed to process frame");
+                let out = process(
+                    img.bytes()
+                        .map(|b| b.unwrap_or_default())
+                        .collect::<Vec<_>>(),
+                    parsed,
+                    args.no_state,
+                )
+                .unwrap_or_default();
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -277,32 +277,30 @@ fn main() -> anyhow::Result<()> {
             }
         }
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
-    };
-
+    }
+    let output_file = std::path::Path::new(&output);
     write_painted(
-        &mut writer,
+        writer,
         "Saved output to: ",
         Color::BrightYellow,
         (true, true),
         is_tty,
     )?;
     write_painted(
-        &mut writer,
+        writer,
         output_file.to_str().unwrap(),
         Color::RGB(255, 165, 0),
         (false, false),
         is_tty,
     )?;
-
     if args.open {
         open::that(output_file)?;
     }
-
     Ok(())
 }
 
 fn write_painted(
-    w: &mut dyn Write,
+    w: &mut impl Write,
     s: &str,
     color: Color,
     bold_ul: (bool, bool),
@@ -323,13 +321,14 @@ fn write_painted(
 }
 
 fn process(
-    mut img: DynamicImage,
-    expressions: Vec<(String, Vec<Token>)>,
-    args: &Args,
+    img: Vec<u8>,
+    expressions: &[(String, Vec<Token>)],
+    no_state: bool,
 ) -> anyhow::Result<DynamicImage> {
-    let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
+    let mut img = image::load_from_memory(&img)?;
+    let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
-    for val in &expressions {
+    for val in expressions.iter() {
         let (_, tokens) = val;
 
         let width = img.width();
@@ -358,7 +357,7 @@ fn process(
                         rgba: colors.0,
                         saved_rgb: [sr, sg, sb],
                         position: (x, y),
-                        ignore_state: args.no_state,
+                        ignore_state: no_state,
                     },
                     &img,
                     rng.clone(),
@@ -378,10 +377,14 @@ fn process(
     Ok(output_image)
 }
 
-fn get_format(file: &Path) -> Option<ImageFormat> {
+fn get_format(file: &str) -> Option<image::ImageFormat> {
+    let file = Path::new(file);
     match file
         .extension()
-        .and_then(OsStr::to_str).expect("file extension").to_lowercase().as_str()
+        .and_then(OsStr::to_str)
+        .expect("file extension")
+        .to_lowercase()
+        .as_str()
     {
         "png" => Some(ImageFormat::Png),
         "jpg" | "jpeg" => Some(ImageFormat::Jpeg),
@@ -392,13 +395,6 @@ fn get_format(file: &Path) -> Option<ImageFormat> {
         "tiff" => image::ImageFormat::Tiff,
         "webp" => image::ImageFormat::WebP,
         "hdr" => image::ImageFormat::Hdr,*/
-        _ => None
+        _ => None,
     }
-}
-
-fn get_output_extension(file: &Path) -> &str {
-    file.extension()
-        .expect("file extension")
-        .to_str()
-        .expect("to string")
 }
