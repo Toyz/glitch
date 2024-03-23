@@ -9,7 +9,7 @@ edition = "2021"
 anyhow = "1.0.81"
 clap = { version = "4.5.3", features = ["derive"] }
 gif = "0.13.1"
-image = "0.25.0"
+image = { version = "0.25.0", features = ["rayon"] }
 rand = "0.9.0-alpha.1"
 open = "5.1.2"
 ansiterm = "0.12.2"

@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::io::{BufReader, BufWriter, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
@@ -5,9 +6,9 @@ use std::sync::Mutex;
 use ansiterm::Color;
 use clap::{arg, Parser};
 use gif::{Encoder, Repeat};
+use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, ImageFormat, Pixel};
 use image::codecs::gif::GifDecoder;
 use image::io::Reader as ImageReader;
-use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder, Pixel};
 use rayon::prelude::*;
 
 use crate::eval::EvalContext;
@@ -161,7 +162,6 @@ fn main() -> anyhow::Result<()> {
         (true, false),
         is_tty,
     )?;
-    let format = get_format(path);
     let output_extension = get_output_extension(path);
 
     let output_file = match args.output {
@@ -197,8 +197,10 @@ fn main() -> anyhow::Result<()> {
         is_tty,
     )?;
     writer.write_fmt(format_args!("{} x {}\n", img.width(), img.height()))?;
+    let format = get_format(path).expect("Failed to get format");
+
     match format {
-        image::ImageFormat::Png => {
+        ImageFormat::Png => {
             write_painted(
                 &mut writer,
                 "\tProcessing mode: 󰸭 PNG\n",
@@ -209,7 +211,7 @@ fn main() -> anyhow::Result<()> {
             let out = process(img, parsed, &cloned_args)?;
             out.save_with_format(output_file, format)?;
         }
-        image::ImageFormat::Jpeg => {
+        ImageFormat::Jpeg => {
             write_painted(
                 &mut writer,
                 "\tProcessing mode: 󰈥 JPEG\n",
@@ -221,7 +223,7 @@ fn main() -> anyhow::Result<()> {
             let out = process(img, parsed, &cloned_args)?;
             out.save_with_format(output_file, format)?;
         }
-        image::ImageFormat::Gif => {
+        ImageFormat::Gif => {
             write_painted(
                 &mut writer,
                 "\tProcessing mode: 󰵸 GIF\n\n",
@@ -376,22 +378,21 @@ fn process(
     Ok(output_image)
 }
 
-fn get_format(file: &Path) -> image::ImageFormat {
+fn get_format(file: &Path) -> Option<ImageFormat> {
     match file
         .extension()
-        .expect("file extension")
-        .to_str()
-        .expect("to string")
+        .and_then(OsStr::to_str).expect("file extension").to_lowercase().as_str()
     {
-        "png" => image::ImageFormat::Png,
-        "jpg" | "jpeg" => image::ImageFormat::Jpeg,
-        "gif" => image::ImageFormat::Gif,
+        "png" => Some(ImageFormat::Png),
+        "jpg" | "jpeg" => Some(ImageFormat::Jpeg),
+        "gif" => Some(ImageFormat::Gif),
+        /*
         "bmp" => image::ImageFormat::Bmp,
         "ico" => image::ImageFormat::Ico,
         "tiff" => image::ImageFormat::Tiff,
         "webp" => image::ImageFormat::WebP,
-        "hdr" => image::ImageFormat::Hdr,
-        _ => panic!("Unsupported file format"),
+        "hdr" => image::ImageFormat::Hdr,*/
+        _ => None
     }
 }
 
