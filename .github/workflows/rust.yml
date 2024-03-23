@@ -37,7 +37,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest, windows-latest, macos-14, macos-13]
     steps:
       - uses: actions/checkout@v3
       - name: Cache cargo registry and build outputs
@@ -70,6 +70,16 @@ jobs:
         with:
           name: glitch-artifacts-macos-latest
           path: target/macos
+      - name: Download build artifacts (macOS-14-ARM64)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-macos-14-latest
+          path: target/macos-arm64
+      - name: Download build artifacts (macOS-13)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-macos-13-latest
+          path: target/macos-13
       - name: Download build artifacts (Windows)
         uses: actions/download-artifact@v3
         with:
@@ -99,6 +109,8 @@ jobs:
             target/ubuntu.zip 
             target/macos.zip 
             target/windows.zip
+            target/macos-arm64
+            target/macos-13
 
   prerelease:
     if: github.ref == 'refs/heads/main'
@@ -121,12 +133,26 @@ jobs:
         with:
           name: glitch-artifacts-ubuntu-latest
           path: target/ubuntu
+      - name: Download build artifacts (macOS-14-ARM64)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-macos-14-latest
+          path: target/macos-arm64
+      - name: Download build artifacts (macOS-13)
+        uses: actions/download-artifact@v3
+        with:
+          name: glitch-artifacts-macos-13-latest
+          path: target/macos-13
       - name: Create ZIP archive (Ubuntu)
         run: zip -jr target/ubuntu.zip target/ubuntu/
       - name: Create ZIP archive (macOS)
         run: zip -jr target/macos.zip target/macos/
       - name: Create ZIP archive (Windows)
         run: zip -jr target/windows.zip target/windows/
+      - name: Create ZIP archive (macOS-14-ARM64)
+        run: zip -jr target/macos-arm64.zip target/macos-arm64/
+      - name: Create ZIP archive (macOS-13)
+        run: zip -jr target/macos-13.zip target/macos-13/
       - name: Create Pre-Release
         uses: softprops/action-gh-release@v1
         env:
@@ -140,3 +166,5 @@ jobs:
             target/ubuntu.zip 
             target/macos.zip 
             target/windows.zip
+            target/macos-arm64.zip
+            target/macos-13.zip
