@@ -5,6 +5,8 @@ use std::collections::VecDeque;
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Token {
     Num(u8),
+    Random(u8),
+    RGBColor((char, u8)),
     Add,
     Sub,
     Mul,
@@ -49,6 +51,8 @@ impl DisplayStyle for Token {
             Token::BitOr => Style::new().fg(Color::BrightYellow),
             Token::Pow => Style::new().fg(Color::BrightYellow),
             Token::Weight => Style::new().fg(Color::BrightYellow),
+            Token::Random(_) => Style::new().fg(Color::BrightBlue),
+            Token::RGBColor(_) => Style::new().fg(Color::BrightBlue),
         }
     }
 }
@@ -89,9 +93,6 @@ impl std::fmt::Display for Token {
                 }
                 'S' => {
                     content = Some("Previous Saved Pixel Value");
-                }
-                'r' => {
-                    content = Some("Random Color in 3x3 Grid");
                 }
                 't' => {
                     content = Some("Random Color in 6x6 Grid");
@@ -155,6 +156,12 @@ impl std::fmt::Display for Token {
             Token::Weight => {
                 content = Some("Weight");
             }
+            Token::Random(range) => {
+                content = Some(format!("Random color grid -{range}x{range}").leak());
+            }
+            Token::RGBColor((part, val)) => {
+                content = Some(format!("RGB Color - {part}: {val}").leak());
+            }
             _ => {}
         }
         match content {
@@ -189,7 +196,8 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
         Ok(())
     };
 
-    for c in input.chars() {
+    let mut chars_iter = input.chars().peekable();
+    while let Some(c) = chars_iter.next() {
         current_position += 1; // Update position for each character
         match c {
             '0'..='9' => {
@@ -208,6 +216,43 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     }
                     None => Some(digit as u8),
                 };
+            }
+            'r' => {
+                push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
+                let mut range_str = String::new();
+                while let Some(&next_char) = chars_iter.peek() {
+                    if next_char.is_ascii_digit() {
+                        range_str.push(chars_iter.next().unwrap());
+                        current_position += 1;
+                    } else {
+                        break;
+                    }
+                }
+                let range = if range_str.is_empty() {
+                    1
+                } else {
+                    range_str.parse::<u8>().map_err(|_| format!("Invalid range specified at position {}", current_position))?
+                };
+                output_queue.push_back(Token::Random(range));
+            }
+            'R' | 'G' | 'B' => {
+                push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
+                let part = c;
+                let mut value_str = String::new();
+                while let Some(&next_char) = chars_iter.peek() {
+                    if next_char.is_ascii_digit() {
+                        value_str.push(chars_iter.next().unwrap());
+                        current_position += 1;
+                    } else {
+                        break;
+                    }
+                }
+                let value = if value_str.is_empty() {
+                    255
+                } else {
+                    value_str.parse::<u8>().map_err(|_| format!("Invalid value specified at position {}", current_position))?
+                };
+                output_queue.push_back(Token::RGBColor((part, value)));
             }
             c if char_to_token(c).is_some() => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
@@ -292,13 +337,12 @@ fn valid_tok(tok: char) -> bool {
         tok,
         'c' | 's'
             | 'Y'
-            | 'r'
             | 'x'
             | 'y'
             | 'N'
-            | 'R'
+            /*| 'R'
             | 'G'
-            | 'B'
+            | 'B'*/
             | 'e'
             | 'b'
             | 'H'

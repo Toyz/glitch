@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use image::{DynamicImage, GenericImageView, Rgba};
 use rand::prelude::ThreadRng;
 use rand::Rng;
@@ -32,7 +33,7 @@ struct SumSave {
     v_y: Option<RgbSum>,
     v_b: Option<RgbSum>,
     v_e: Option<RgbSum>,
-    v_r: Option<RgbSum>,
+    v_r: Option<HashMap<u8, RgbSum>>,
     v_t: Option<RgbSum>,
     v_g: Option<RgbSum>,
     v_h: Option<RgbSum>,
@@ -252,11 +253,43 @@ pub fn eval(
                 ));
             }
 
+            Token::Random(num) => {
+                let neg = std::ops::Neg::neg(num as i8);
+                // check if the number exists in v_r hashmap
+                let v_r = if let Some(v) = saved.v_r.as_ref() {
+                    v.get(&num)
+                } else {
+                    None
+                };
+
+                let v_r = if let Some(v) = v_r {
+                    *v
+                } else {
+                    let colors = gen_random_position(neg as i32, num as i32, &mut rng);
+                    let rgb = rgb_from_colors(&colors);
+                    if !ignore_state {
+                        saved.v_r.get_or_insert(HashMap::new()).insert(num, rgb);
+                    }
+                    rgb
+                };
+
+                stack.push(v_r);
+            }
+
+            Token::RGBColor((token, num)) => {
+               match token {
+                    'R' => stack.push(RgbSum::new(num, 0, 0)),
+                    'G' => stack.push(RgbSum::new(0, num, 0)),
+                    'B' => stack.push(RgbSum::new(0, 0, num)),
+                    _ => return Err(format!("Unexpected token: {:?}", token)),
+                }
+            }
+
             Token::Char(c) => match c {
                 'c' => stack.push(RgbSum::new(r, g, b)),
-                'R' => stack.push(RgbSum::new(255, 0, 0)),
+                /*'R' => stack.push(RgbSum::new(255, 0, 0)),
                 'G' => stack.push(RgbSum::new(0, 255, 0)),
-                'B' => stack.push(RgbSum::new(0, 0, 255)),
+                'B' => stack.push(RgbSum::new(0, 0, 255)),*/
                 'Y' => {
                     let v_y = match saved.v_y {
                         Some(v_y) => v_y,
@@ -280,6 +313,7 @@ pub fn eval(
                     let yu = three_rule(y, height);
                     stack.push(RgbSum::new(yu, yu, yu));
                 }
+                /*
                 'r' => {
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
@@ -296,7 +330,7 @@ pub fn eval(
                     };
 
                     stack.push(v_r);
-                }
+                }*/
                 't' => {
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
