@@ -92,7 +92,7 @@ pub fn eval(
     let three_rule = |x: u32, max: u32| -> u8 { (((255 * x) / max) & 255) as u8 };
 
     let is_in_bounds =
-        |x: u32, y: u32, width: u32, height: u32| -> bool { x < width && y < height };
+        |x: u32, y: u32| -> bool { x < width && y < height };
 
     let mut saved = SumSave::default();
 
@@ -256,27 +256,27 @@ pub fn eval(
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
                         None => {
-                            let x1 = rng.gen_range(-1..=1) as u32;
-                            let y1 = rng.gen_range(-1..=1) as u32;
+                            let [(x1, y1), (x2, y2), (x3, y3)] =
+                                gen_random_position(-2, 2, &mut rng);
 
-                            let x2 = rng.gen_range(-1..=1) as u32;
-                            let y2 = rng.gen_range(-1..=1) as u32;
-
-                            let x3 = rng.gen_range(-1..=1) as u32;
-                            let y3 = rng.gen_range(-1..=1) as u32;
-
-                            let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
-                                true => input.get_pixel(x + x1, y + y1).0,
+                            let x1 = (x1 + x as i32) as u32;
+                            let y1 = (y1 + y as i32) as u32;
+                            let p1 = match is_in_bounds(x1, y1) {
+                                true => input.get_pixel(x1, y1).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p2 = match is_in_bounds(x + x2, y + y2, width, height) {
-                                true => input.get_pixel(x + x2, y + y2).0,
+                            let x2 = (x2 + x as i32) as u32;
+                            let y2 = (y2 + y as i32) as u32;
+                            let p2 = match is_in_bounds(x2, y2) {
+                                true => input.get_pixel(x2, y2).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p3 = match is_in_bounds(x + x3, y + y3, width, height) {
-                                true => input.get_pixel(x + x3, y + y3).0,
+                            let x3 = (x3 + x as i32) as u32;
+                            let y3 = (y3 + y as i32) as u32;
+                            let p3 = match is_in_bounds(x3, y3) {
+                                true => input.get_pixel(x3, y3).0,
                                 false => [0, 0, 0, 0],
                             };
 
@@ -294,27 +294,27 @@ pub fn eval(
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
                         None => {
-                            let x1 = rng.gen_range(-2..=2) as u32;
-                            let y1 = rng.gen_range(-2..=2) as u32;
+                            let [(x1, y1), (x2, y2), (x3, y3)] =
+                                gen_random_position(-2, 2, &mut rng);
 
-                            let x2 = rng.gen_range(-2..=2) as u32;
-                            let y2 = rng.gen_range(-2..=2) as u32;
-
-                            let x3 = rng.gen_range(-2..=2) as u32;
-                            let y3 = rng.gen_range(-2..=2) as u32;
-
-                            let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
-                                true => input.get_pixel(x + x1, y + y1).0,
+                            let x1 = (x1 + x as i32) as u32;
+                            let y1 = (y1 + y as i32) as u32;
+                            let p1 = match is_in_bounds(x1, y1) {
+                                true => input.get_pixel(x1, y1).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p2 = match is_in_bounds(x + x2, y + y2, width, height) {
-                                true => input.get_pixel(x + x2, y + y2).0,
+                            let x2 = (x2 + x as i32) as u32;
+                            let y2 = (y2 + y as i32) as u32;
+                            let p2 = match is_in_bounds(x2, y2) {
+                                true => input.get_pixel(x2, y2).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p3 = match is_in_bounds(x + x3, y + y3, width, height) {
-                                true => input.get_pixel(x + x3, y + y3).0,
+                            let x3 = (x3 + x as i32) as u32;
+                            let y3 = (y3 + y as i32) as u32;
+                            let p3 = match is_in_bounds(x3, y3) {
+                                true => input.get_pixel(x3, y3).0,
                                 false => [0, 0, 0, 0],
                             };
 
@@ -332,27 +332,27 @@ pub fn eval(
                     let v_g = match saved.v_g {
                         Some(v_g) => v_g,
                         None => {
-                            let x1 = rng.gen_range(0..=width);
-                            let y1 = rng.gen_range(0..=height);
+                            let [(x1, y1), (x2, y2), (x3, y3)] =
+                                gen_random_position(0i32, width as i32, &mut rng);
 
-                            let x2 = rng.gen_range(0..=width);
-                            let y2 = rng.gen_range(0..=height);
-
-                            let x3 = rng.gen_range(0..=width);
-                            let y3 = rng.gen_range(0..=height);
-
-                            let p1 = match is_in_bounds(x + x1, y + y1, width, height) {
-                                true => input.get_pixel(x + x1, y + y1).0,
+                            let x1 = (x1 + x as i32) as u32;
+                            let y1 = (y1 + y as i32) as u32;
+                            let p1 = match is_in_bounds(x1, y1) {
+                                true => input.get_pixel(x1, y1).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p2 = match is_in_bounds(x + x2, y + y2, width, height) {
-                                true => input.get_pixel(x + x2, y + y2).0,
+                            let x2 = (x2 + x as i32) as u32;
+                            let y2 = (y2 + y as i32) as u32;
+                            let p2 = match is_in_bounds(x2, y2) {
+                                true => input.get_pixel(x2, y2).0,
                                 false => [0, 0, 0, 0],
                             };
 
-                            let p3 = match is_in_bounds(x + x3, y + y3, width, height) {
-                                true => input.get_pixel(x + x3, y + y3).0,
+                            let x3 = (x3 + x as i32) as u32;
+                            let y3 = (y3 + y as i32) as u32;
+                            let p3 = match is_in_bounds(x3, y3) {
+                                true => input.get_pixel(x3, y3).0,
                                 false => [0, 0, 0, 0],
                             };
 
@@ -605,6 +605,15 @@ fn max(vals: [u8; 8]) -> u8 {
 
 fn min(vals: [u8; 8]) -> u8 {
     vals.iter().cloned().min().unwrap_or_default()
+}
+
+fn gen_random_position(min: i32, max: i32, rng: &mut ThreadRng) -> [(i32, i32); 3] {
+    let mut positions = [(0, 0); 3];
+    for i in positions.iter_mut() {
+        i.0 = rng.gen_range(min..=max);
+        i.1 = rng.gen_range(min..=max);
+    }
+    positions
 }
 
 #[inline]
