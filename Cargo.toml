@@ -14,3 +14,9 @@ rand = "0.9.0-alpha.1"
 open = "5.1.2"
 ansiterm = "0.12.2"
 rayon = "1.9.0"
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
