@@ -63,7 +63,36 @@ fn main() -> anyhow::Result<()> {
     )?;
     let path = Path::new(&args.input);
     if !path.exists() {
-        return Err(anyhow::anyhow!("File does not exist\n"));
+        write_painted(
+            &mut writer,
+            "\nFile does not exist\n",
+            Color::Red,
+            (true, true),
+            is_tty,
+        )?;
+        return Ok(());
+    }
+    
+    if !path.is_file() {
+        write_painted(
+            &mut writer,
+            "\nPath is not a file\n",
+            Color::Red,
+            (true, true),
+            is_tty,
+        )?;
+        return Ok(());
+    }
+    
+    if args.expressions.is_empty() {
+        write_painted(
+            &mut writer,
+            "\nNo expressions provided\n",
+            Color::Red,
+            (true, true),
+            is_tty,
+        )?;
+        return Ok(());
     }
 
     write_painted(
