@@ -287,9 +287,6 @@ pub fn eval(
 
             Token::Char(c) => match c {
                 'c' => stack.push(RgbSum::new(r, g, b)),
-                /*'R' => stack.push(RgbSum::new(255, 0, 0)),
-                'G' => stack.push(RgbSum::new(0, 255, 0)),
-                'B' => stack.push(RgbSum::new(0, 0, 255)),*/
                 'Y' => {
                     let v_y = match saved.v_y {
                         Some(v_y) => v_y,
