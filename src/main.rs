@@ -1,18 +1,17 @@
-use crate::eval::EvalContext;
-use crate::parser::Token;
-use ansiterm::Color;
-use clap::Parser;
-use gif::{Encoder, Repeat};
-use image::codecs::gif::GifDecoder;
-use image::{
-    AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, ImageDecoder,
-    ImageFormat, Pixel,
-};
-use rayon::prelude::*;
-use std::ffi::OsStr;
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::sync::Mutex;
+
+use ansiterm::Color;
+use clap::Parser;
+use gif::{Encoder, Repeat};
+use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, guess_format, ImageDecoder, ImageFormat, Pixel};
+use image::codecs::gif::GifDecoder;
+use rayon::prelude::*;
+
+use crate::eval::EvalContext;
+use crate::parser::Token;
+
 mod bounds;
 mod eval;
 mod parser;
@@ -184,21 +183,23 @@ fn handle_image(
         (false, false),
         is_tty,
     )?;
-    let format = get_format(&name);
+    let format = guess_format(&img).unwrap_or(ImageFormat::Png);
     let output = match &args.output {
         Some(ref file) => file.to_owned(),
         None => {
             let ext = match format {
-                Some(image::ImageFormat::Png) => "png",
-                Some(image::ImageFormat::Jpeg) => "jpg",
-                Some(image::ImageFormat::Gif) => "gif",
-                _ => "png",
+                ImageFormat::Png => "png",
+                ImageFormat::Jpeg => "jpg",
+                ImageFormat::Gif => "gif",
+                _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
             };
             format!("output.{}", ext)
         }
     };
     match format {
-        Some(ImageFormat::Png) => {
+        ImageFormat::Png => {
+            let img = image::load_from_memory(&img)?;
+
             write_painted(
                 writer,
                 "\tProcessing mode: 󰸭 PNG\n",
@@ -207,9 +208,11 @@ fn handle_image(
                 is_tty,
             )?;
             let out = process(img, parsed, args.no_state)?;
-            out.save_with_format(output.clone(), format.unwrap())?;
+            out.save_with_format(output.clone(), format)?;
         }
-        Some(ImageFormat::Jpeg) => {
+        ImageFormat::Jpeg => {
+            let img = image::load_from_memory(&img)?;
+
             write_painted(
                 writer,
                 "\tProcessing mode: 󰈥 JPEG\n",
@@ -218,9 +221,9 @@ fn handle_image(
                 is_tty,
             )?;
             let out = process(img, parsed, args.no_state)?;
-            out.save_with_format(output.clone(), format.unwrap())?;
+            out.save_with_format(output.clone(), format)?;
         }
-        Some(ImageFormat::Gif) => {
+        ImageFormat::Gif => {
             write_painted(
                 writer,
                 "\tProcessing mode: 󰵸 GIF\n\n",
@@ -252,13 +255,10 @@ fn handle_image(
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
                 let out = process(
-                    img.bytes()
-                        .map(|b| b.unwrap_or_default())
-                        .collect::<Vec<_>>(),
+                    img.into(),
                     parsed,
                     args.no_state,
-                )
-                .unwrap_or_default();
+                ).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -278,7 +278,7 @@ fn handle_image(
         }
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
     }
-    let output_file = std::path::Path::new(&output);
+    let output_file = Path::new(&output);
     write_painted(
         writer,
         "Saved output to: ",
@@ -321,11 +321,10 @@ fn write_painted(
 }
 
 fn process(
-    img: Vec<u8>,
+    mut img: DynamicImage,
     expressions: &[(String, Vec<Token>)],
     no_state: bool,
 ) -> anyhow::Result<DynamicImage> {
-    let mut img = image::load_from_memory(&img)?;
     let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
 
     for val in expressions.iter() {
@@ -375,26 +374,4 @@ fn process(
         img = output_image.clone();
     }
     Ok(output_image)
-}
-
-fn get_format(file: &str) -> Option<image::ImageFormat> {
-    let file = Path::new(file);
-    match file
-        .extension()
-        .and_then(OsStr::to_str)
-        .expect("file extension")
-        .to_lowercase()
-        .as_str()
-    {
-        "png" => Some(ImageFormat::Png),
-        "jpg" | "jpeg" => Some(ImageFormat::Jpeg),
-        "gif" => Some(ImageFormat::Gif),
-        /*
-        "bmp" => image::ImageFormat::Bmp,
-        "ico" => image::ImageFormat::Ico,
-        "tiff" => image::ImageFormat::Tiff,
-        "webp" => image::ImageFormat::WebP,
-        "hdr" => image::ImageFormat::Hdr,*/
-        _ => None,
-    }
 }
