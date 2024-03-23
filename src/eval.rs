@@ -17,6 +17,16 @@ impl RgbSum {
     }
 }
 
+impl From<[u8; 3]> for RgbSum {
+    fn from(rgb: [u8; 3]) -> Self {
+        RgbSum {
+            r: rgb[0],
+            g: rgb[1],
+            b: rgb[2],
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct SumSave {
     v_y: Option<RgbSum>,
@@ -91,8 +101,26 @@ pub fn eval(
 
     let three_rule = |x: u32, max: u32| -> u8 { (((255 * x) / max) & 255) as u8 };
 
-    let is_in_bounds =
-        |x: u32, y: u32| -> bool { x < width && y < height };
+    let is_in_bounds = |x: u32, y: u32| -> bool { x < width && y < height };
+
+    let get_pixel_in_bounds = |x: u32, y: u32| -> [u8; 4] {
+        if is_in_bounds(x, y) {
+            input.get_pixel(x, y).0
+        } else {
+            [0, 0, 0, 0]
+        }
+    };
+
+    let rgb_from_colors = |colors: &[(i32, i32); 3]| -> RgbSum {
+        let mut rgb = [0; 3];
+        for (i, (xx, yy)) in colors.iter().enumerate() {
+            let x = (xx + x as i32) as u32;
+            let y = (yy + y as i32) as u32;
+            let pixel = get_pixel_in_bounds(x, y);
+            rgb[i] = pixel[i];
+        }
+        RgbSum::from(rgb)
+    };
 
     let mut saved = SumSave::default();
 
@@ -256,35 +284,14 @@ pub fn eval(
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
                         None => {
-                            let [(x1, y1), (x2, y2), (x3, y3)] =
-                                gen_random_position(-2, 2, &mut rng);
+                            let colors =
+                                gen_random_position(-1, 1, &mut rng);
 
-                            let x1 = (x1 + x as i32) as u32;
-                            let y1 = (y1 + y as i32) as u32;
-                            let p1 = match is_in_bounds(x1, y1) {
-                                true => input.get_pixel(x1, y1).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x2 = (x2 + x as i32) as u32;
-                            let y2 = (y2 + y as i32) as u32;
-                            let p2 = match is_in_bounds(x2, y2) {
-                                true => input.get_pixel(x2, y2).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x3 = (x3 + x as i32) as u32;
-                            let y3 = (y3 + y as i32) as u32;
-                            let p3 = match is_in_bounds(x3, y3) {
-                                true => input.get_pixel(x3, y3).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let v_r = RgbSum::new(p1[0], p2[1], p3[2]);
+                            let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
-                                saved.v_r = Some(v_r);
+                                saved.v_r = Some(rgb);
                             }
-                            v_r
+                            rgb
                         }
                     };
 
@@ -294,35 +301,14 @@ pub fn eval(
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
                         None => {
-                            let [(x1, y1), (x2, y2), (x3, y3)] =
+                            let colors =
                                 gen_random_position(-2, 2, &mut rng);
 
-                            let x1 = (x1 + x as i32) as u32;
-                            let y1 = (y1 + y as i32) as u32;
-                            let p1 = match is_in_bounds(x1, y1) {
-                                true => input.get_pixel(x1, y1).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x2 = (x2 + x as i32) as u32;
-                            let y2 = (y2 + y as i32) as u32;
-                            let p2 = match is_in_bounds(x2, y2) {
-                                true => input.get_pixel(x2, y2).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x3 = (x3 + x as i32) as u32;
-                            let y3 = (y3 + y as i32) as u32;
-                            let p3 = match is_in_bounds(x3, y3) {
-                                true => input.get_pixel(x3, y3).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let v_t = RgbSum::new(p1[0], p2[1], p3[2]);
+                            let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
-                                saved.v_t = Some(v_t);
+                                saved.v_t = Some(rgb);
                             }
-                            v_t
+                            rgb
                         }
                     };
 
@@ -332,36 +318,14 @@ pub fn eval(
                     let v_g = match saved.v_g {
                         Some(v_g) => v_g,
                         None => {
-                            let [(x1, y1), (x2, y2), (x3, y3)] =
+                            let colors =
                                 gen_random_position(0i32, width as i32, &mut rng);
 
-                            let x1 = (x1 + x as i32) as u32;
-                            let y1 = (y1 + y as i32) as u32;
-                            let p1 = match is_in_bounds(x1, y1) {
-                                true => input.get_pixel(x1, y1).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x2 = (x2 + x as i32) as u32;
-                            let y2 = (y2 + y as i32) as u32;
-                            let p2 = match is_in_bounds(x2, y2) {
-                                true => input.get_pixel(x2, y2).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let x3 = (x3 + x as i32) as u32;
-                            let y3 = (y3 + y as i32) as u32;
-                            let p3 = match is_in_bounds(x3, y3) {
-                                true => input.get_pixel(x3, y3).0,
-                                false => [0, 0, 0, 0],
-                            };
-
-                            let v_g = RgbSum::new(p1[0], p2[1], p3[2]);
-
+                            let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
-                                saved.v_g = Some(v_g);
+                                saved.v_g = Some(rgb);
                             }
-                            v_g
+                            rgb
                         }
                     };
 
