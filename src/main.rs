@@ -5,7 +5,7 @@ use std::sync::Mutex;
 use ansiterm::Color;
 use clap::Parser;
 use gif::{Encoder, Repeat};
-use image::{AnimationDecoder, ColorType, DynamicImage, GenericImage, GenericImageView, guess_format, ImageDecoder, ImageFormat, Pixel};
+use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, guess_format, ImageDecoder, ImageFormat, Pixel};
 use image::codecs::gif::GifDecoder;
 use rayon::prelude::*;
 
@@ -325,7 +325,7 @@ fn process(
     expressions: &[(String, Vec<Token>)],
     no_state: bool,
 ) -> anyhow::Result<DynamicImage> {
-    let mut output_image = DynamicImage::new(img.width(), img.height(), ColorType::Rgba8);
+    let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
 
     for val in expressions.iter() {
         let (_, tokens) = val;
