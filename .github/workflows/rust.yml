@@ -113,8 +113,8 @@ jobs:
             target/ubuntu.zip 
             target/macos.zip 
             target/windows.zip
-            target/macos-arm64
-            target/macos-13
+            target/macos-arm64.zip
+            target/macos-13.zip
 
   prerelease:
     if: github.ref == 'refs/heads/main'
