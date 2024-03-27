@@ -1,6 +1,6 @@
 # Glitch
 
-This is a simple port of https://github.com/sug0/go-glitch to rust.
+This is a simple port of sug0/go-glitch to rust.
 
 ## What is the deal with the expressions?
 
