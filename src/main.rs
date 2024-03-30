@@ -261,8 +261,7 @@ fn handle_image(
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
 
             (0..frames.len()).into_par_iter().for_each(|i| {
-                let frame = frames.get(i).expect("Failed to get frame");
-                let frame = frame.clone();
+                let frame = frames.get(i).expect("Failed to get frame").to_owned();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
                 let out =

@@ -236,6 +236,11 @@ pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                         format!("Invalid range specifieed at position {}", current_position)
                     })?
                 };
+
+                if range == 0 {
+                    return Err("Range cannot be 0 just use 'c'".to_string());
+                }
+
                 output_queue.push_back(Token::Random(range));
             }
             'R' | 'G' | 'B' => {
