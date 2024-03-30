@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 use ansiterm::{Color, Style};
 use std::collections::VecDeque;
+use std::fmt::Formatter;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
 pub enum Token {
@@ -33,34 +34,34 @@ pub trait DisplayStyle {
 impl DisplayStyle for Token {
     fn get_style(&self) -> Style {
         match self {
-            Token::Num(_) => Style::new().fg(Color::BrightYellow),
-            Token::Greater => Style::new().fg(Color::BrightBlue),
-            Token::Char(_) => Style::new().fg(Color::BrightBlue),
-            Token::BitLShift => Style::new().fg(Color::BrightYellow),
-            Token::BitRShift => Style::new().fg(Color::BrightYellow),
-            Token::LeftParen => Style::new().fg(Color::BrightCyan),
-            Token::RightParen => Style::new().fg(Color::BrightCyan),
-            Token::BitAnd => Style::new().fg(Color::BrightYellow),
-            Token::BitXor => Style::new().fg(Color::BrightYellow),
-            Token::Sub => Style::new().fg(Color::BrightBlue),
-            Token::Add => Style::new().fg(Color::BrightBlue),
-            Token::Div => Style::new().fg(Color::BrightBlue),
-            Token::Mul => Style::new().fg(Color::BrightBlue),
-            Token::Mod => Style::new().fg(Color::BrightBlue),
-            Token::BitAndNot => Style::new().fg(Color::BrightYellow),
-            Token::BitOr => Style::new().fg(Color::BrightYellow),
-            Token::Pow => Style::new().fg(Color::BrightYellow),
-            Token::Weight => Style::new().fg(Color::BrightYellow),
-            Token::Random(_) => Style::new().fg(Color::BrightBlue),
-            Token::RGBColor(_) => Style::new().fg(Color::BrightBlue),
+            Self::Num(_) => Style::new().fg(Color::BrightYellow),
+            Self::Greater => Style::new().fg(Color::BrightBlue),
+            Self::Char(_) => Style::new().fg(Color::BrightBlue),
+            Self::BitLShift => Style::new().fg(Color::BrightYellow),
+            Self::BitRShift => Style::new().fg(Color::BrightYellow),
+            Self::LeftParen => Style::new().fg(Color::BrightCyan),
+            Self::RightParen => Style::new().fg(Color::BrightCyan),
+            Self::BitAnd => Style::new().fg(Color::BrightYellow),
+            Self::BitXor => Style::new().fg(Color::BrightYellow),
+            Self::Sub => Style::new().fg(Color::BrightBlue),
+            Self::Add => Style::new().fg(Color::BrightBlue),
+            Self::Div => Style::new().fg(Color::BrightBlue),
+            Self::Mul => Style::new().fg(Color::BrightBlue),
+            Self::Mod => Style::new().fg(Color::BrightBlue),
+            Self::BitAndNot => Style::new().fg(Color::BrightYellow),
+            Self::BitOr => Style::new().fg(Color::BrightYellow),
+            Self::Pow => Style::new().fg(Color::BrightYellow),
+            Self::Weight => Style::new().fg(Color::BrightYellow),
+            Self::Random(_) => Style::new().fg(Color::BrightBlue),
+            Self::RGBColor(_) => Style::new().fg(Color::BrightBlue),
         }
     }
 }
 impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
         let mut content: Option<&str> = None;
         match self {
-            Token::Char(ch) => match ch {
+            Self::Char(ch) => match ch {
                 'c' => {
                     content = Some("Current Pixel Value");
                 }
@@ -114,52 +115,52 @@ impl std::fmt::Display for Token {
                 }
                 _ => {}
             },
-            Token::BitAnd => {
+            Self::BitAnd => {
                 content = Some("Bitwise AND");
             }
-            Token::BitAndNot => {
+            Self::BitAndNot => {
                 content = Some("Bitwise AND NOT");
             }
-            Token::BitOr => {
+            Self::BitOr => {
                 content = Some("Bitwise OR");
             }
-            Token::BitXor => {
+            Self::BitXor => {
                 content = Some("Bitwise XOR");
             }
-            Token::BitLShift => {
+            Self::BitLShift => {
                 content = Some("Bitwise Left Shift");
             }
-            Token::BitRShift => {
+            Self::BitRShift => {
                 content = Some("Bitwise Right Shift");
             }
-            Token::Add => {
+            Self::Add => {
                 content = Some("Addition");
             }
-            Token::Sub => {
+            Self::Sub => {
                 content = Some("Subtraction");
             }
-            Token::Mul => {
+            Self::Mul => {
                 content = Some("Multiplication");
             }
-            Token::Div => {
+            Self::Div => {
                 content = Some("Division");
             }
-            Token::Mod => {
+            Self::Mod => {
                 content = Some("Modulus");
             }
-            Token::Pow => {
+            Self::Pow => {
                 content = Some("Power");
             }
-            Token::Greater => {
+            Self::Greater => {
                 content = Some("Greater");
             }
-            Token::Weight => {
+            Self::Weight => {
                 content = Some("Weight");
             }
-            Token::Random(range) => {
+            Self::Random(range) => {
                 content = Some(format!("Random color grid -{range}x{range}").leak());
             }
-            Token::RGBColor((part, val)) => {
+            Self::RGBColor((part, val)) => {
                 content = Some(format!("RGB Color - {part}: {val}").leak());
             }
             _ => {}
@@ -179,7 +180,7 @@ impl std::fmt::Display for Token {
     }
 }
 
-pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
+pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
     let mut output_queue: VecDeque<Token> = VecDeque::new();
     let mut operator_stack: Vec<Token> = Vec::new();
     let mut number_buffer: Option<u8> = None;
@@ -231,7 +232,9 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                 let range = if range_str.is_empty() {
                     1
                 } else {
-                    range_str.parse::<u8>().map_err(|_| format!("Invalid range specified at position {}", current_position))?
+                    range_str.parse::<u8>().map_err(|_| {
+                        format!("Invalid range specifieed at position {}", current_position)
+                    })?
                 };
                 output_queue.push_back(Token::Random(range));
             }
@@ -250,7 +253,9 @@ pub(crate) fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                 let value = if value_str.is_empty() {
                     255
                 } else {
-                    value_str.parse::<u8>().map_err(|_| format!("Invalid value specified at position {}", current_position))?
+                    value_str.parse::<u8>().map_err(|_| {
+                        format!("Invalid value specified at position {}", current_position)
+                    })?
                 };
                 output_queue.push_back(Token::RGBColor((part, value)));
             }
@@ -310,13 +315,13 @@ fn handle_operator(operator_stack: &mut Vec<Token>, output_queue: &mut VecDeque<
     operator_stack.push(op);
 }
 
-fn is_higher_precedence(new_op: &Token, top_op: &Token) -> bool {
+const fn is_higher_precedence(new_op: &Token, top_op: &Token) -> bool {
     let (new_prec, _) = operator_precedence(new_op);
     let (_, top_prec) = operator_precedence(top_op);
     new_prec > top_prec
 }
 
-fn operator_precedence(op: &Token) -> (i32, i32) {
+const fn operator_precedence(op: &Token) -> (i32, i32) {
     match op {
         Token::Add | Token::Sub | Token::BitOr | Token::BitXor => (4, 4),
         Token::Mul
@@ -332,7 +337,7 @@ fn operator_precedence(op: &Token) -> (i32, i32) {
     }
 }
 
-fn valid_tok(tok: char) -> bool {
+const fn valid_tok(tok: char) -> bool {
     matches!(
         tok,
         'c' | 's'
@@ -355,7 +360,7 @@ fn valid_tok(tok: char) -> bool {
     )
 }
 
-fn char_to_token(c: char) -> Option<Token> {
+const fn char_to_token(c: char) -> Option<Token> {
     match c {
         '+' => Some(Token::Add),
         '-' => Some(Token::Sub),

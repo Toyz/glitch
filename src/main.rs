@@ -1,3 +1,11 @@
+#![deny(clippy::perf, clippy::correctness)]
+#![warn(
+    rust_2018_idioms,
+    clippy::nursery,
+    clippy::complexity,
+    clippy::cognitive_complexity
+)]
+
 use std::io::{BufReader, BufWriter, Read, Write};
 use std::path::Path;
 use std::sync::Mutex;
@@ -5,8 +13,11 @@ use std::sync::Mutex;
 use ansiterm::Color;
 use clap::Parser;
 use gif::{Encoder, Repeat};
-use image::{AnimationDecoder, DynamicImage, GenericImage, GenericImageView, guess_format, ImageDecoder, ImageFormat, Pixel};
 use image::codecs::gif::GifDecoder;
+use image::{
+    guess_format, AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder,
+    ImageFormat, Pixel,
+};
 use rayon::prelude::*;
 
 use crate::eval::EvalContext;
@@ -254,11 +265,8 @@ fn handle_image(
                 let frame = frame.clone();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
-                let out = process(
-                    img.into(),
-                    parsed,
-                    args.no_state,
-                ).expect("Failed to process frame");
+                let out =
+                    process(img.into(), parsed, args.no_state).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);

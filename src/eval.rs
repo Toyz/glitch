@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use image::{DynamicImage, GenericImageView, Rgba};
 use rand::prelude::ThreadRng;
 use rand::Rng;
+use std::collections::HashMap;
 
 use crate::parser::Token;
 
@@ -13,14 +13,14 @@ struct RgbSum {
 }
 
 impl RgbSum {
-    fn new(r: u8, g: u8, b: u8) -> Self {
-        RgbSum { r, g, b }
+    const fn new(r: u8, b: u8, g: u8) -> Self {
+        Self { r, g, b }
     }
 }
 
 impl From<[u8; 3]> for RgbSum {
     fn from(rgb: [u8; 3]) -> Self {
-        RgbSum {
+        Self {
             r: rgb[0],
             g: rgb[1],
             b: rgb[2],
@@ -256,11 +256,7 @@ pub fn eval(
             Token::Random(num) => {
                 let neg = std::ops::Neg::neg(num as i8);
                 // check if the number exists in v_r hashmap
-                let v_r = if let Some(v) = saved.v_r.as_ref() {
-                    v.get(&num)
-                } else {
-                    None
-                };
+                let v_r = saved.v_r.as_ref().and_then(|v| v.get(&num));
 
                 let v_r = if let Some(v) = v_r {
                     *v
@@ -276,14 +272,12 @@ pub fn eval(
                 stack.push(v_r);
             }
 
-            Token::RGBColor((token, num)) => {
-               match token {
-                    'R' => stack.push(RgbSum::new(num, 0, 0)),
-                    'G' => stack.push(RgbSum::new(0, num, 0)),
-                    'B' => stack.push(RgbSum::new(0, 0, num)),
-                    _ => return Err(format!("Unexpected token: {:?}", token)),
-                }
-            }
+            Token::RGBColor((token, num)) => match token {
+                'R' => stack.push(RgbSum::new(num, 0, 0)),
+                'G' => stack.push(RgbSum::new(0, num, 0)),
+                'B' => stack.push(RgbSum::new(0, 0, num)),
+                _ => return Err(format!("Unexpected token: {:?}", token)),
+            },
 
             Token::Char(c) => match c {
                 'c' => stack.push(RgbSum::new(r, g, b)),
@@ -292,7 +286,7 @@ pub fn eval(
                         Some(v_y) => v_y,
                         None => {
                             let y =
-                                f64::from(r) * 0.299 + f64::from(g) * 0.587 + f64::from(b) * 0.0722;
+                                f64::from(b).mul_add(0.0722, f64::from(r).mul_add(0.299, f64::from(g) * 0.587));
                             let v_y = RgbSum::new(y as u8, y as u8, y as u8);
                             saved.v_y = Some(v_y);
                             v_y
@@ -332,8 +326,7 @@ pub fn eval(
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
                         None => {
-                            let colors =
-                                gen_random_position(-2, 2, &mut rng);
+                            let colors = gen_random_position(-2, 2, &mut rng);
 
                             let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
@@ -349,8 +342,7 @@ pub fn eval(
                     let v_g = match saved.v_g {
                         Some(v_g) => v_g,
                         None => {
-                            let colors =
-                                gen_random_position(0i32, width as i32, &mut rng);
+                            let colors = gen_random_position(0i32, width as i32, &mut rng);
 
                             let rgb = rgb_from_colors(&colors);
                             if !ignore_state {

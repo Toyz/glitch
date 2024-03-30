@@ -12,8 +12,8 @@ pub struct Bounds {
 impl Bounds {
     /// Creates a new `Bounds` instance. Initially, min values are set very high and max values very low
     /// so they can be adjusted down or up respectively to find the actual bounds.
-    fn new() -> Self {
-        Bounds {
+    const fn new() -> Self {
+        Self {
             min_x: u32::MAX,
             min_y: u32::MAX,
             max_x: u32::MIN,
@@ -37,19 +37,19 @@ impl Bounds {
         }
     }
 
-    pub fn min_x(&self) -> u32 {
+    pub const fn min_x(&self) -> u32 {
         self.min_x
     }
 
-    pub fn max_x(&self) -> u32 {
+    pub const fn max_x(&self) -> u32 {
         self.max_x
     }
 
-    pub fn min_y(&self) -> u32 {
+    pub const fn min_y(&self) -> u32 {
         self.min_y
     }
 
-    pub fn max_y(&self) -> u32 {
+    pub const fn max_y(&self) -> u32 {
         self.max_y
     }
 }
