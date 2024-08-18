@@ -233,7 +233,7 @@ pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     1
                 } else {
                     range_str.parse::<u8>().map_err(|_| {
-                        format!("Invalid range specifieed at position {}", current_position)
+                        format!("Invalid range specified at position {}", current_position)
                     })?
                 };
 
