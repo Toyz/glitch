@@ -119,13 +119,12 @@ fn main() -> anyhow::Result<()> {
         return Ok(());
     }
 
-    // now if we have a expression file, we need to read the file and add it to the args.expressions vector
     if let Some(path) = &args.expression_file {
         let reader = fs::File::open(path)?;
         let reader = BufReader::new(reader);
         let expressions = reader.lines().collect::<Result<Vec<String>, std::io::Error>>()?;
         let expressions: Vec<_> = Filter::collect(expressions.into_iter().filter(|e| !e.is_empty() && !e.starts_with('#')));
-        
+
         println!(
             "{} Reading {} Expression{} from file: {}",
             LOOKING_GLASS,
