@@ -18,7 +18,7 @@ use image::{
 use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
 use std::io::{BufReader, BufWriter, Read};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -257,8 +257,7 @@ fn handle_image(
         if expression_count > 1 { "s" } else { "" }
     ));
 
-    let absolute_path = fs::canonicalize(output_file).unwrap_or_else(|_| output_file.to_path_buf());
-
+    let absolute_path = fs::canonicalize(output_file).map_or_else(|_| output_file.to_path_buf(), |path| strip_windows_prefix(&path));
     println!(
         "{} Output File: {}",
         IMAGE,
@@ -329,4 +328,13 @@ fn process(
     }
 
     Ok(output_image)
+}
+
+fn strip_windows_prefix(path: &Path) -> PathBuf {
+    let path_str = path.to_str().unwrap_or_default();
+    if path_str.starts_with(r"\\?\") {
+        PathBuf::from(&path_str[4..]) // Remove the \\?\ prefix
+    } else {
+        path.to_path_buf()
+    }
 }
