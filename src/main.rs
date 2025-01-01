@@ -21,7 +21,8 @@ use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
 use std::fs;
-use std::io::{BufReader, BufWriter, Read};
+use std::io::{BufRead, BufReader, BufWriter, Read};
+use std::iter::Filter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
@@ -33,10 +34,6 @@ mod parser;
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None, author)]
 struct Args {
-    /// The expression to evaluate
-    #[arg(short, long)]
-    expressions: Vec<String>,
-
     /// The input file
     input: String,
 
@@ -63,6 +60,14 @@ struct Args {
     /// Number of threads to use (Default: Number of cores)
     #[arg(long)]
     threads: Option<u64>,
+
+    /// The expressions to evaluate
+    #[arg(short, long, required_unless_present = "expression_file", long_help = "The expressions to evaluate")]
+    expressions: Vec<String>,
+
+    /// A file containing expressions to evaluate
+    #[arg(short = 'f', long, required_unless_present = "expressions", long_help = "A file containing expressions to evaluate (Appended to the expressions provided)")]
+    expression_file: Option<PathBuf>,
 }
 
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
@@ -108,6 +113,29 @@ fn main() -> anyhow::Result<()> {
         SEED,
         style(seed).bold().cyan()
     );
+
+    if args.expressions.is_empty() && args.expression_file.is_none() {
+        println!("{} No expressions provided...", ERROR);
+        return Ok(());
+    }
+
+    // now if we have a expression file, we need to read the file and add it to the args.expressions vector
+    if let Some(path) = &args.expression_file {
+        let reader = fs::File::open(path)?;
+        let reader = BufReader::new(reader);
+        let expressions = reader.lines().collect::<Result<Vec<String>, std::io::Error>>()?;
+        let expressions: Vec<_> = Filter::collect(expressions.into_iter().filter(|e| !e.is_empty() && !e.starts_with('#')));
+        
+        println!(
+            "{} Reading {} Expression{} from file: {}",
+            LOOKING_GLASS,
+            style(&expressions.len()).bold().cyan(),
+            if expressions.len() > 1 { "s" } else { "" },
+            style(path.display()).bold().cyan()
+        );
+
+        args.expressions.extend(expressions);
+    }
 
     println!(
         "{} Parsing {} Expression{}...",
