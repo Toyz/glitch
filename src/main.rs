@@ -59,6 +59,10 @@ struct Args {
     /// Seed for the random number generator (Default: Current time)
     #[arg(short, long)]
     seed: Option<u64>,
+
+    /// Number of threads to use (Default: Number of cores)
+    #[arg(long)]
+    threads: Option<u64>,
 }
 
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
@@ -71,6 +75,13 @@ static SEED: Emoji<'_, '_> = Emoji("🌱  ", "");
 
 fn main() -> anyhow::Result<()> {
     let mut args = Args::parse();
+    if args.threads.is_some() {
+        rayon::ThreadPoolBuilder::new()
+            .num_threads(args.threads.unwrap() as usize)
+            .build_global()
+            .expect("Failed to set thread count");
+    }
+    
     // If we want to pass the arguments to a function, we need to clone them
     if args.input.starts_with("http") {
         // use the writer
