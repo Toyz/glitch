@@ -6,19 +6,21 @@
     clippy::cognitive_complexity
 )]
 
-use std::io::{BufReader, BufWriter, Read, Write};
-use std::path::Path;
-use std::sync::Mutex;
-
-use ansiterm::Color;
+use std::fs;
 use clap::Parser;
+use console::{style, Emoji};
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
 use image::{
     guess_format, AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder,
     ImageFormat, Pixel,
 };
+use indicatif::{ProgressBar, ProgressStyle};
 use rayon::prelude::*;
+use std::io::{BufReader, BufWriter, Read};
+use std::path::Path;
+use std::sync::Mutex;
+use std::time::Duration;
 
 use crate::eval::EvalContext;
 use crate::parser::Token;
@@ -37,7 +39,7 @@ struct Args {
     /// The input file
     input: String,
 
-    /// Optional output file
+    /// Optional output file (default: output.{png,jpg,gif})
     #[arg(short, long)]
     output: Option<String>,
 
@@ -48,102 +50,81 @@ struct Args {
     /// Disable the state during processing
     #[arg(long, default_value = "false")]
     no_state: bool,
+
+    /// Enable verbose output
+    #[arg(short, long, default_value = "false")]
+    verbose: bool,
 }
+
+static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
+static DOWNLOAD: Emoji<'_, '_> = Emoji("🌍  ", "");
+static IMAGE: Emoji<'_, '_> = Emoji("🗃️  ", "");
+static ERROR: Emoji<'_, '_> = Emoji("❌  ", "");
+static OK: Emoji<'_, '_> = Emoji("✅  ", "");
+static EYE: Emoji<'_, '_> = Emoji("👁️  ", "");
 
 fn main() -> anyhow::Result<()> {
     let args = Args::parse();
     // If we want to pass the arguments to a function, we need to clone them
-    let mut writer = std::io::stdout();
-    let is_tty = std::io::IsTerminal::is_terminal(&writer);
     if args.input.starts_with("http") {
-        write_painted(
-            &mut writer,
-            " Downloading Image: ",
-            Color::BrightGreen,
-            (true, false),
-            is_tty,
-        )?;
+        // use the writer
+        println!(
+            "{} Downloading Image: {}",
+            DOWNLOAD,
+            style(&args.input).bold().cyan()
+        );
     } else {
-        write_painted(
-            &mut writer,
-            " Input File: ",
-            Color::BrightPurple,
-            (true, true),
-            is_tty,
-        )?;
+        println!(
+            "{} Local File: {}",
+            IMAGE,
+            style(&args.input).bold().cyan()
+        );
     }
-    write_painted(
-        &mut writer,
-        &args.input,
-        Color::RGB(255, 165, 0),
-        (false, false),
-        is_tty,
-    )?;
-    write_painted(
-        &mut writer,
-        "\n\nParsing expressions...\n",
-        Color::BrightBlue,
-        (true, false),
-        is_tty,
-    )?;
+
+    println!(
+        "{} Parsing {} Expression{}...",
+        LOOKING_GLASS,
+        style(&args.expressions.len()).bold().cyan(),
+        if args.expressions.len() > 1 { "s" } else { "" }
+    );
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
+    let mut idx = 1;
+    let expression_count = args.expressions.len();
     for e in &args.expressions {
+        let spinner = ProgressBar::new_spinner();
+        spinner.set_style(
+            ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")?
+                .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+        );
+        spinner.set_message(format!("Parsing [{}/{}] {}", idx, expression_count, style(e).bold().cyan()));
+        spinner.enable_steady_tick(Duration::from_millis(100));
+
         let tokens = match parser::shunting_yard(e) {
             Ok(tokens) => tokens,
             Err(err) => {
-                write_painted(
-                    &mut writer,
-                    format!("\nExpression:{}\n", e).as_str(),
-                    Color::Red,
-                    (true, true),
-                    is_tty,
-                )?;
-                write_painted(
-                    &mut writer,
-                    format!("{}\n", err).as_str(),
-                    Color::Red,
-                    (false, false),
-                    is_tty,
-                )?;
+                spinner.finish_and_clear();
+
+                println!("{} Expression {} failed to parse...", ERROR, style(e).bold().cyan());
+                println!("{} {} -> {}", ERROR, style("ERROR").red().bold(), err);
                 return Ok(());
             }
         };
-        write_painted(
-            &mut writer,
-            "\nExpression  \n",
-            Color::BrightCyan,
-            (true, true),
-            is_tty,
-        )?;
-        write_painted(
-            &mut writer,
-            format!("[  \"{}\"  ]\n\n", e).as_str(),
-            Color::RGB(255, 165, 0),
-            (false, false),
-            is_tty,
-        )?;
-        tokens.clone().iter().for_each(|t| match is_tty {
-            true => {
-                writer
-                    .write_fmt(format_args!("\t{}\n", t))
-                    .unwrap_or_default();
-            }
-            false => {
-                writer
-                    .write_fmt(format_args!("\t{:?}\n", t))
-                    .unwrap_or_default();
-            }
-        });
+        spinner.finish_and_clear();
+
+        println!("{} [{}/{}] Parsed {} tokens from -> {}", OK, idx, expression_count, style(tokens.len()).cyan().bold(), style(e).bold().cyan());
+
+        if args.verbose {
+            tokens.clone().iter().for_each(|t| {
+                println!("\t{}", t);
+            });
+        }
+
+        idx += 1;
+
         parsed.push((e.to_string(), tokens));
     }
-    write_painted(
-        &mut writer,
-        "\n\nConsuming Expressions...\n\n",
-        Color::BrightPurple,
-        (true, false),
-        is_tty,
-    )?;
-    handle_image(&args, &mut writer, &parsed, is_tty)?;
+
+    handle_image(&args, &parsed)?;
     Ok(())
 }
 
@@ -156,9 +137,7 @@ fn download_image(url: &str) -> anyhow::Result<Vec<u8>> {
 
 fn handle_image(
     args: &Args,
-    writer: &mut impl Write,
     parsed: &[(String, Vec<Token>)],
-    is_tty: bool,
 ) -> anyhow::Result<(), anyhow::Error> {
     let img = match &args.input {
         file if file.starts_with("http") => download_image(&args.input)?,
@@ -171,29 +150,15 @@ fn handle_image(
                 .collect::<Result<Vec<u8>, std::io::Error>>()?
         }
     };
-    let name = match &args.input {
-        file if file.starts_with("http") => file.split('/').last().expect("last").to_string(),
-        file => Path::new(&file)
-            .file_name()
-            .expect("file name")
-            .to_str()
-            .expect("Unable to get filename")
-            .to_string(),
-    };
-    write_painted(
-        writer,
-        "\t Processing Image: ",
-        Color::BrightGreen,
-        (true, false),
-        is_tty,
-    )?;
-    write_painted(
-        writer,
-        format!("{}\n", &name).as_str(),
-        Color::RGB(255, 165, 0),
-        (false, false),
-        is_tty,
-    )?;
+    // let name = match &args.input {
+    //     file if file.starts_with("http") => file.split('/').last().expect("last").to_string(),
+    //     file => Path::new(&file)
+    //         .file_name()
+    //         .expect("file name")
+    //         .to_str()
+    //         .expect("Unable to get filename")
+    //         .to_string(),
+    // };
     let format = guess_format(&img).unwrap_or(ImageFormat::Png);
     let output = match &args.output {
         Some(ref file) => file.to_owned(),
@@ -207,58 +172,57 @@ fn handle_image(
             format!("output.{}", ext)
         }
     };
+
+    let expression_count = parsed.len();
+    println!(
+        "{} Processing {} Expression{}...",
+        LOOKING_GLASS,
+        style(expression_count).bold().cyan(),
+        if expression_count > 1 { "s" } else { "" }
+    );
+
+    let spinner = ProgressBar::new_spinner();
+    spinner.set_style(
+        ProgressStyle::with_template("🔍 {spinner} {wide_msg}")?
+            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+    );
+    spinner.set_message("Processing...");
+    spinner.enable_steady_tick(Duration::from_millis(10));
+
     match format {
         ImageFormat::Png => {
             let img = image::load_from_memory(&img)?;
 
-            write_painted(
-                writer,
-                "\tProcessing mode: 󰸭 PNG\n",
-                Color::BrightGreen,
-                (true, false),
-                is_tty,
-            )?;
+            spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("PNG").bold().cyan()));
+
             let out = process(img, parsed, args.no_state)?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Jpeg => {
             let img = image::load_from_memory(&img)?;
 
-            write_painted(
-                writer,
-                "\tProcessing mode: 󰈥 JPEG\n",
-                Color::BrightGreen,
-                (true, false),
-                is_tty,
-            )?;
+            spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("JPEG").bold().cyan()));
+
             let out = process(img, parsed, args.no_state)?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Gif => {
-            write_painted(
-                writer,
-                "\tProcessing mode: 󰵸 GIF\n\n",
-                Color::BrightGreen,
-                (true, false),
-                is_tty,
-            )?;
+
             let mut reader = std::io::Cursor::new(img);
             let decoder = GifDecoder::new(&mut reader)?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
-            write_painted(
-                writer,
-                format!("Processing {} frames...\n\n", frames.len()).as_str(),
-                Color::BrightCyan,
-                (true, true),
-                is_tty,
-            )?;
+
+
+
             let output = std::fs::File::create(output.clone())?;
             let mut img_writer = BufWriter::new(output);
             let mut encoder = Encoder::new(&mut img_writer, w as u16, h as u16, &[])?;
             encoder.set_repeat(Repeat::Infinite)?;
 
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
+
+            spinner.set_message(format!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("GIF").bold().cyan(), style(frames.len()).bold().cyan()));
 
             (0..frames.len()).into_par_iter().for_each(|i| {
                 let frame = frames.get(i).expect("Failed to get frame").to_owned();
@@ -286,45 +250,30 @@ fn handle_image(
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
     }
     let output_file = Path::new(&output);
-    write_painted(
-        writer,
-        "Saved output to: ",
-        Color::BrightYellow,
-        (true, true),
-        is_tty,
-    )?;
-    write_painted(
-        writer,
-        output_file.to_str().unwrap(),
-        Color::RGB(255, 165, 0),
-        (false, false),
-        is_tty,
-    )?;
+
+    spinner.finish_with_message(format!(
+        "Processed {} Expression{}...",
+        style(expression_count).bold().cyan(),
+        if expression_count > 1 { "s" } else { "" }
+    ));
+
+    let absolute_path = fs::canonicalize(&output_file).unwrap_or_else(|_| output_file.to_path_buf());
+
+    println!(
+        "{} Output File: {}",
+        IMAGE,
+        style(absolute_path.display()).bold().cyan()
+    );
+
     if args.open {
         open::that(output_file)?;
+
+        println!(
+            "{} Opened output file with default application...",
+            EYE,
+        );
     }
     Ok(())
-}
-
-fn write_painted(
-    w: &mut impl Write,
-    s: &str,
-    color: Color,
-    bold_ul: (bool, bool),
-    is_tty: bool,
-) -> Result<(), std::io::Error> {
-    w.write_all(
-        match is_tty {
-            true => match bold_ul {
-                (true, true) => color.bold().underline().paint(s).to_string(),
-                (false, true) => color.underline().paint(s).to_string(),
-                (true, false) => color.bold().paint(s).to_string(),
-                (false, false) => color.paint(s).to_string(),
-            },
-            false => s.to_string(),
-        }
-        .as_bytes(),
-    )
 }
 
 fn process(
@@ -334,7 +283,7 @@ fn process(
 ) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
 
-    for val in expressions.iter() {
+    for  val in expressions.iter() {
         let (_, tokens) = val;
 
         let width = img.width();
@@ -347,10 +296,8 @@ fn process(
         let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
         let min_x = bounds.min_x();
         let max_x = bounds.max_x();
-
         let min_y = bounds.min_y();
         let max_y = bounds.max_y();
-        let rng = rand::thread_rng();
 
         for x in min_x..max_x {
             for y in min_y..max_y {
@@ -366,9 +313,9 @@ fn process(
                         ignore_state: no_state,
                     },
                     &img,
-                    rng.clone(),
+                    rand::thread_rng(),
                 )
-                .expect("Failed to evaluate");
+                    .expect("Failed to evaluate");
 
                 sr = result[0];
                 sg = result[1];
@@ -380,5 +327,6 @@ fn process(
 
         img = output_image.clone();
     }
+
     Ok(output_image)
 }
