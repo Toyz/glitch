@@ -92,7 +92,7 @@ impl std::fmt::Display for Token {
                 'B' => {
                     content = Some("Blue");
                 }
-                'S' => {
+                's' => {
                     content = Some("Previous Saved Pixel Value");
                 }
                 't' => {

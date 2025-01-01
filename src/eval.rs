@@ -586,7 +586,7 @@ fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rg
     boxed
 }
 
-fn max(vals: [u8; 8]) -> u8 {
+fn max(vals: [u8; 8]) -> u8  {
     vals.iter().cloned().max().unwrap_or_default()
 }
 
