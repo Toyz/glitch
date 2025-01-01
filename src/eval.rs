@@ -1,6 +1,5 @@
 use image::{DynamicImage, GenericImageView, Rgba};
-use rand::prelude::ThreadRng;
-use rand::Rng;
+use rand::{Rng, RngCore};
 use std::collections::HashMap;
 
 use crate::parser::Token;
@@ -57,7 +56,7 @@ pub struct EvalContext {
 pub fn eval(
     ctx: EvalContext,
     input: &DynamicImage,
-    mut rng: ThreadRng,
+    rng: &mut Box<dyn RngCore>,
 ) -> Result<Rgba<u8>, String> {
     let EvalContext {
         tokens,
@@ -261,7 +260,7 @@ pub fn eval(
                 let v_r = if let Some(v) = v_r {
                     *v
                 } else {
-                    let colors = gen_random_position(neg as i32, num as i32, &mut rng);
+                    let colors = gen_random_position(neg as i32, num as i32, rng);
                     let rgb = rgb_from_colors(&colors);
                     if !ignore_state {
                         saved.v_r.get_or_insert(HashMap::new()).insert(num, rgb);
@@ -304,8 +303,7 @@ pub fn eval(
                     let yu = three_rule(y, height);
                     stack.push(RgbSum::new(yu, yu, yu));
                 }
-                /*
-                'r' => {
+                /*'r' => {
                     let v_r = match saved.v_r {
                         Some(v_r) => v_r,
                         None => {
@@ -326,7 +324,7 @@ pub fn eval(
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
                         None => {
-                            let colors = gen_random_position(-2, 2, &mut rng);
+                            let colors = gen_random_position(-2, 2, rng);
 
                             let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
@@ -342,7 +340,7 @@ pub fn eval(
                     let v_g = match saved.v_g {
                         Some(v_g) => v_g,
                         None => {
-                            let colors = gen_random_position(0i32, width as i32, &mut rng);
+                            let colors = gen_random_position(0i32, width as i32, rng);
 
                             let rgb = rgb_from_colors(&colors);
                             if !ignore_state {
@@ -594,7 +592,7 @@ fn min(vals: [u8; 8]) -> u8 {
     vals.iter().cloned().min().unwrap_or_default()
 }
 
-fn gen_random_position(min: i32, max: i32, rng: &mut ThreadRng) -> [(i32, i32); 3] {
+fn gen_random_position(min: i32, max: i32, rng: &mut Box<dyn RngCore>) -> [(i32, i32); 3] {
     let mut positions = [(0, 0); 3];
     for i in positions.iter_mut() {
         i.0 = rng.gen_range(min..=max);

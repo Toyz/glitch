@@ -6,7 +6,8 @@
     clippy::cognitive_complexity
 )]
 
-use std::fs;
+use crate::eval::EvalContext;
+use crate::parser::Token;
 use clap::Parser;
 use console::{style, Emoji};
 use gif::{Encoder, Repeat};
@@ -16,14 +17,14 @@ use image::{
     ImageFormat, Pixel,
 };
 use indicatif::{ProgressBar, ProgressStyle};
+use rand::prelude::StdRng;
+use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
+use std::fs;
 use std::io::{BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
-
-use crate::eval::EvalContext;
-use crate::parser::Token;
 
 mod bounds;
 mod eval;
@@ -54,6 +55,10 @@ struct Args {
     /// Enable verbose output
     #[arg(short, long, default_value = "false")]
     verbose: bool,
+
+    /// Seed for the random number generator (Default: Current time)
+    #[arg(short, long)]
+    seed: Option<u64>,
 }
 
 static LOOKING_GLASS: Emoji<'_, '_> = Emoji("🔍  ", "");
@@ -62,9 +67,10 @@ static IMAGE: Emoji<'_, '_> = Emoji("🗃️  ", "");
 static ERROR: Emoji<'_, '_> = Emoji("❌  ", "");
 static OK: Emoji<'_, '_> = Emoji("✅  ", "");
 static EYE: Emoji<'_, '_> = Emoji("👁️  ", "");
+static SEED: Emoji<'_, '_> = Emoji("🌱  ", "");
 
 fn main() -> anyhow::Result<()> {
-    let args = Args::parse();
+    let mut args = Args::parse();
     // If we want to pass the arguments to a function, we need to clone them
     if args.input.starts_with("http") {
         // use the writer
@@ -80,6 +86,17 @@ fn main() -> anyhow::Result<()> {
             style(&args.input).bold().cyan()
         );
     }
+
+    // Determine which RNG to use based on the provided seed
+    let seed = get_random_seed(&args);
+    args.seed = Some(seed);
+    let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
+
+    println!(
+        "{} Using Seed: {}",
+        SEED,
+        style(seed).bold().cyan()
+    );
 
     println!(
         "{} Parsing {} Expression{}...",
@@ -124,7 +141,7 @@ fn main() -> anyhow::Result<()> {
         parsed.push((e.to_string(), tokens));
     }
 
-    handle_image(&args, &parsed)?;
+    handle_image(&args, &parsed, &mut rng)?;
     Ok(())
 }
 
@@ -138,6 +155,7 @@ fn download_image(url: &str) -> anyhow::Result<Vec<u8>> {
 fn handle_image(
     args: &Args,
     parsed: &[(String, Vec<Token>)],
+    rand: &mut Box<dyn RngCore>,
 ) -> anyhow::Result<(), anyhow::Error> {
     let img = match &args.input {
         file if file.starts_with("http") => download_image(&args.input)?,
@@ -195,7 +213,7 @@ fn handle_image(
 
             spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("PNG").bold().cyan()));
 
-            let out = process(img, parsed, args.no_state)?;
+            let out = process(img, parsed, args, rand)?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Jpeg => {
@@ -203,17 +221,14 @@ fn handle_image(
 
             spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("JPEG").bold().cyan()));
 
-            let out = process(img, parsed, args.no_state)?;
+            let out = process(img, parsed, args, rand)?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Gif => {
-
             let mut reader = std::io::Cursor::new(img);
             let decoder = GifDecoder::new(&mut reader)?;
             let [w, h] = [decoder.dimensions().0, decoder.dimensions().1];
             let frames = decoder.into_frames().collect_frames()?;
-
-
 
             let output = std::fs::File::create(output.clone())?;
             let mut img_writer = BufWriter::new(output);
@@ -224,12 +239,15 @@ fn handle_image(
 
             spinner.set_message(format!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("GIF").bold().cyan(), style(frames.len()).bold().cyan()));
 
+            let seed = args.seed.unwrap();
             (0..frames.len()).into_par_iter().for_each(|i| {
+                let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
+
                 let frame = frames.get(i).expect("Failed to get frame").to_owned();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
                 let out =
-                    process(img.into(), parsed, args.no_state).expect("Failed to process frame");
+                    process(img.into(), parsed, args, &mut rng).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -278,7 +296,8 @@ fn handle_image(
 fn process(
     mut img: DynamicImage,
     expressions: &[(String, Vec<Token>)],
-    no_state: bool,
+    args: &Args,
+    rand: &mut Box<dyn RngCore>, // Accept boxed RNG here
 ) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
 
@@ -309,10 +328,10 @@ fn process(
                         rgba: colors.0,
                         saved_rgb: [sr, sg, sb],
                         position: (x, y),
-                        ignore_state: no_state,
+                        ignore_state: args.no_state,
                     },
                     &img,
-                    rand::thread_rng(),
+                    rand,
                 )
                     .expect("Failed to evaluate");
 
@@ -332,4 +351,15 @@ fn process(
 
 fn strip_windows_prefix(path: &Path) -> PathBuf {
     path.to_str().and_then(|s| s.strip_prefix(r"\\?\")).map_or_else(|| path.to_path_buf(), PathBuf::from)
+}
+
+fn get_random_seed(args: &Args) -> u64 {
+    if args.seed.is_none() {
+        return std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .expect("Time went backwards")
+            .as_nanos() as u64;
+    }
+
+    args.seed.unwrap()
 }
