@@ -257,7 +257,7 @@ fn handle_image(
         if expression_count > 1 { "s" } else { "" }
     ));
 
-    let absolute_path = fs::canonicalize(&output_file).unwrap_or_else(|_| output_file.to_path_buf());
+    let absolute_path = fs::canonicalize(output_file).unwrap_or_else(|_| output_file.to_path_buf());
 
     println!(
         "{} Output File: {}",
