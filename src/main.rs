@@ -199,29 +199,23 @@ fn handle_image(
         if expression_count > 1 { "s" } else { "" }
     );
 
-    let spinner = ProgressBar::new_spinner();
-    spinner.set_style(
-        ProgressStyle::with_template("🔍 {spinner} {wide_msg}")?
-            .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
-    );
-    spinner.set_message("Processing...");
-    spinner.enable_steady_tick(Duration::from_millis(10));
+    let multi_progress = indicatif::MultiProgress::new();
 
     match format {
         ImageFormat::Png => {
             let img = image::load_from_memory(&img)?;
 
-            spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("PNG").bold().cyan()));
+            println!("{} Processing mode: 󰸭 {}", IMAGE, style("PNG").bold().cyan());
 
-            let out = process(img, parsed, args, rand)?;
+            let out = process(img, parsed, args, rand, Some(ProgressBar::new(0)))?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Jpeg => {
             let img = image::load_from_memory(&img)?;
 
-            spinner.set_message(format!("{} Processing mode: 󰸭 {}", IMAGE, style("JPEG").bold().cyan()));
+            println!("{} Processing mode: 󰸭 {}", IMAGE, style("JPEG").bold().cyan());
 
-            let out = process(img, parsed, args, rand)?;
+            let out = process(img, parsed, args, rand, Some(ProgressBar::new(0)))?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Gif => {
@@ -237,17 +231,28 @@ fn handle_image(
 
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
 
-            spinner.set_message(format!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("GIF").bold().cyan(), style(frames.len()).bold().cyan()));
+            let frame_count = frames.len();
+            println!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("GIF").bold().cyan(), style(frames.len()).bold().cyan());
+
+            let frames_spin = multi_progress.add(ProgressBar::new(frame_count as u64));
+            frames_spin.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")?
+            );
 
             let seed = args.seed.unwrap();
-            (0..frames.len()).into_par_iter().for_each(|i| {
+            (0..frame_count).into_par_iter().for_each(|i| {
+                let pb = multi_progress.add(ProgressBar::new(0));
+                // update a bit slower
+                pb.enable_steady_tick(Duration::from_millis(100));
+
                 let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
 
                 let frame = frames.get(i).expect("Failed to get frame").to_owned();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
                 let out =
-                    process(img.into(), parsed, args, &mut rng).expect("Failed to process frame");
+                    process(img.into(), parsed, args, &mut rng, Some(pb)).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -257,6 +262,8 @@ fn handle_image(
                     .lock()
                     .expect("failed to unlock")
                     .push((i, new_frame));
+
+                frames_spin.inc(1);
             });
 
             let mut frames = new_frames.into_inner().expect("Failed to get frames");
@@ -264,16 +271,22 @@ fn handle_image(
             for (_, frame) in frames {
                 encoder.write_frame(&frame)?;
             }
+
+            frames_spin.finish_and_clear();
+
+            println!("{} Processed {} frames...", OK, style(frame_count).bold().cyan());
         }
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
-    }
+    };
+
     let output_file = Path::new(&output);
 
-    spinner.finish_with_message(format!(
-        "Processed {} Expression{}...",
+   println!(
+        "{} Processed {} Expression{}...",
+        OK,
         style(expression_count).bold().cyan(),
         if expression_count > 1 { "s" } else { "" }
-    ));
+    );
 
     let absolute_path = fs::canonicalize(output_file).map_or_else(|_| output_file.to_path_buf(), |path| strip_windows_prefix(&path));
     println!(
@@ -297,9 +310,24 @@ fn process(
     mut img: DynamicImage,
     expressions: &[(String, Vec<Token>)],
     args: &Args,
-    rand: &mut Box<dyn RngCore>, // Accept boxed RNG here
+    rand: &mut Box<dyn RngCore>,
+    progress_bar: Option<ProgressBar>
 ) -> anyhow::Result<DynamicImage> {
     let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
+
+    let pb = if let Some(pb) = progress_bar {
+       // get total pixels to process of the image * number of expressions as u64
+        let total_pixels = ((img.width() * img.height()) * expressions.len() as u32) as u64;
+        pb.set_length(total_pixels);
+        pb.set_style(
+            ProgressStyle::default_bar()
+                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")?
+        );
+
+        Some(pb)
+    } else {
+        None
+    };
 
     for  val in expressions.iter() {
         let (_, tokens) = val;
@@ -340,10 +368,18 @@ fn process(
                 sb = result[2];
 
                 output_image.put_pixel(x, y, result);
+
+                if let Some(pb) = &pb {
+                    pb.inc(1);
+                }
             }
         }
 
         img = output_image.clone();
+    }
+
+    if let Some(pb) = pb {
+        pb.finish_and_clear();
     }
 
     Ok(output_image)
