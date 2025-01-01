@@ -331,10 +331,5 @@ fn process(
 }
 
 fn strip_windows_prefix(path: &Path) -> PathBuf {
-    let path_str = path.to_str().unwrap_or_default();
-    if path_str.starts_with(r"\\?\") {
-        PathBuf::from(&path_str[4..]) // Remove the \\?\ prefix
-    } else {
-        path.to_path_buf()
-    }
+    path.to_str().and_then(|s| s.strip_prefix(r"\\?\")).map_or_else(|| path.to_path_buf(), PathBuf::from)
 }
