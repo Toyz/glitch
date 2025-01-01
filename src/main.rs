@@ -31,7 +31,7 @@ mod eval;
 mod parser;
 
 #[derive(Parser, Debug, Clone)]
-#[command(version, about, long_about = None)]
+#[command(version, about, long_about = None, author)]
 struct Args {
     /// The expression to evaluate
     #[arg(short, long)]
@@ -81,7 +81,7 @@ fn main() -> anyhow::Result<()> {
             .build_global()
             .expect("Failed to set thread count");
     }
-    
+
     // If we want to pass the arguments to a function, we need to clone them
     if args.input.starts_with("http") {
         // use the writer

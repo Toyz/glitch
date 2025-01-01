@@ -2,6 +2,10 @@
 name = "glitch"
 version = "0.4.0"
 edition = "2021"
+authors = ["Helba <ai@helba.dev>"]
+description = "A command-line tool to glitch images."
+license = "MIT"
+repository = "https://github.com/toyz/glitch"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
