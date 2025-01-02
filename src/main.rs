@@ -10,6 +10,7 @@ use crate::eval::EvalContext;
 use crate::parser::Token;
 use clap::Parser;
 use console::{style, Emoji};
+use dirs::home_dir;
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
 use image::{
@@ -20,7 +21,6 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
-use std::{env, fs};
 use std::fs::File;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -28,7 +28,7 @@ use std::iter::Filter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
-use dirs::home_dir;
+use std::fs;
 
 mod bounds;
 mod eval;
