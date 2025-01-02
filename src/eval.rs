@@ -46,7 +46,7 @@ struct SumSave {
 pub struct EvalContext {
     pub tokens: Vec<Token>,
     pub size: (u32, u32),
-    pub rgba: [u8; 4],
+    pub rgba: Rgba<u8>,
     pub saved_rgb: [u8; 3],
     pub position: (u32, u32),
 
@@ -68,7 +68,12 @@ pub fn eval(
     } = ctx;
     let (width, height) = size;
     let (x, y) = position;
-    let [r, g, b, a] = rgba;
+
+    let r = rgba[0];
+    let g = rgba[1];
+    let b = rgba[2];
+    let a = rgba[3];
+
     let [sr, sg, sb] = saved_rgb;
 
     if a == 0 {

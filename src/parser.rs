@@ -2,8 +2,9 @@
 use ansiterm::{Color, Style};
 use std::collections::VecDeque;
 use std::fmt::Formatter;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Serialize, Deserialize)]
 pub enum Token {
     Num(u8),
     Random(u8),

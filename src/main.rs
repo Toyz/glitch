@@ -20,12 +20,15 @@ use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
-use std::fs;
-use std::io::{BufRead, BufReader, BufWriter, Read};
+use std::{env, fs};
+use std::fs::File;
+use std::hash::{DefaultHasher, Hash, Hasher};
+use std::io::{BufRead, BufReader, BufWriter, Read, Write};
 use std::iter::Filter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
+use dirs::home_dir;
 
 mod bounds;
 mod eval;
@@ -87,9 +90,7 @@ fn main() -> anyhow::Result<()> {
             .expect("Failed to set thread count");
     }
 
-    // If we want to pass the arguments to a function, we need to clone them
     if args.input.starts_with("http") {
-        // use the writer
         println!(
             "{} Downloading Image: {}",
             DOWNLOAD,
@@ -136,47 +137,64 @@ fn main() -> anyhow::Result<()> {
         args.expressions.extend(expressions);
     }
 
-    println!(
-        "{} Parsing {} Expression{}...",
-        LOOKING_GLASS,
-        style(&args.expressions.len()).bold().cyan(),
-        if args.expressions.len() > 1 { "s" } else { "" }
-    );
+    let expression_list_hash = hash_strings(args.expressions.clone());
+    let load_parsed_from_cache = get_precompiled_cache(format!("{}", expression_list_hash).as_str());
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
-    let mut idx = 1;
-    let expression_count = args.expressions.len();
-    for e in &args.expressions {
-        let spinner = ProgressBar::new_spinner();
-        spinner.set_style(
-            ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")?
-                .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+
+    if let Some(cache) = load_parsed_from_cache {
+        let serialized = fs::read(cache)?;
+        parsed = bincode::deserialize(&serialized)?;
+        println!(
+            "{} Loaded {} Expression{} from cache...",
+            OK,
+            style(parsed.len()).bold().cyan(),
+            if parsed.len() > 1 { "s" } else { "" }
         );
-        spinner.set_message(format!("Parsing [{}/{}] {}", idx, expression_count, style(e).bold().cyan()));
-        spinner.enable_steady_tick(Duration::from_millis(100));
+    } else {
+        println!(
+            "{} Parsing {} Expression{}...",
+            LOOKING_GLASS,
+            style(&args.expressions.len()).bold().cyan(),
+            if args.expressions.len() > 1 { "s" } else { "" }
+        );
+        let mut idx = 1;
+        let expression_count = args.expressions.len();
+        for e in &args.expressions {
+            let spinner = ProgressBar::new_spinner();
+            spinner.set_style(
+                ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")?
+                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+            );
+            spinner.set_message(format!("Parsing [{}/{}] {}", idx, expression_count, style(e).bold().cyan()));
+            spinner.enable_steady_tick(Duration::from_millis(100));
 
-        let tokens = match parser::shunting_yard(e) {
-            Ok(tokens) => tokens,
-            Err(err) => {
-                spinner.finish_and_clear();
+            let tokens = match parser::shunting_yard(e) {
+                Ok(tokens) => tokens,
+                Err(err) => {
+                    spinner.finish_and_clear();
 
-                println!("{} Expression {} failed to parse...", ERROR, style(e).bold().cyan());
-                println!("{} {} -> {}", ERROR, style("ERROR").red().bold(), err);
-                return Ok(());
+                    println!("{} Expression {} failed to parse...", ERROR, style(e).bold().cyan());
+                    println!("{} {} -> {}", ERROR, style("ERROR").red().bold(), err);
+                    return Ok(());
+                }
+            };
+            spinner.finish_and_clear();
+
+            println!("{} [{}/{}] Parsed {} tokens from -> {}", OK, idx, expression_count, style(tokens.len()).cyan().bold(), style(e).bold().cyan());
+
+            if args.verbose {
+                tokens.clone().iter().for_each(|t| {
+                    println!("\t{}", t);
+                });
             }
-        };
-        spinner.finish_and_clear();
 
-        println!("{} [{}/{}] Parsed {} tokens from -> {}", OK, idx, expression_count, style(tokens.len()).cyan().bold(), style(e).bold().cyan());
+            idx += 1;
 
-        if args.verbose {
-            tokens.clone().iter().for_each(|t| {
-                println!("\t{}", t);
-            });
+            parsed.push((e.to_string(), tokens));
         }
 
-        idx += 1;
-
-        parsed.push((e.to_string(), tokens));
+        let serialized = bincode::serialize(&parsed)?;
+        save_to_cache(format!("{}", expression_list_hash).as_str(), &serialized)?;
     }
 
     handle_image(&args, &parsed, &mut rng)?;
@@ -391,7 +409,7 @@ fn process(
                     EvalContext {
                         tokens: tokens.clone(),
                         size: (width, height),
-                        rgba: colors.0,
+                        rgba: colors,
                         saved_rgb: [sr, sg, sb],
                         position: (x, y),
                         ignore_state: args.no_state,
@@ -436,4 +454,56 @@ fn get_random_seed(args: &Args) -> u64 {
     }
 
     args.seed.unwrap()
+}
+
+fn hash_strings(strings: Vec<String>) -> u64 {
+    let mut hasher = DefaultHasher::new();
+    for s in strings {
+        s.hash(&mut hasher);
+    }
+    hasher.finish()
+}
+
+fn get_precompiled_cache(hash: &str) -> Option<PathBuf> {
+    let home_dir = home_dir().expect("Failed to find home directory");
+
+    let glitch_dir = Path::new(&home_dir).join(".glitch");
+    if !glitch_dir.exists() {
+        fs::create_dir(&glitch_dir).expect("Failed to create .glitch directory");
+    }
+
+    let cache_dir = glitch_dir.join("cache");
+    if !cache_dir.exists() {
+        fs::create_dir(&cache_dir).expect("Failed to create cache directory");
+    }
+
+    let cached_file_path = cache_dir.join(hash);
+
+    if cached_file_path.exists() {
+        Some(cached_file_path)
+    } else {
+        None
+    }
+}
+
+fn save_to_cache(hash: &str, data: &[u8]) -> anyhow::Result<PathBuf> {
+    let home_dir = home_dir().expect("Failed to find home directory");
+
+    let glitch_dir = Path::new(&home_dir).join(".glitch");
+    if !glitch_dir.exists() {
+        fs::create_dir(&glitch_dir)?;
+    }
+
+    let cache_dir = glitch_dir.join("cache");
+    if !cache_dir.exists() {
+        fs::create_dir(&cache_dir)?;
+    }
+
+    let cached_file_path = cache_dir.join(hash);
+
+    // Write data to the file
+    let mut file = File::create(&cached_file_path)?;
+    file.write_all(data)?;
+
+    Ok(cached_file_path)
 }
