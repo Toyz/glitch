@@ -6,7 +6,6 @@
 )]
 
 use crate::eval::EvalContext;
-use crate::parser::Token;
 use clap::Parser;
 use console::{style, Emoji};
 use dirs::home_dir;
@@ -27,10 +26,13 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 use webp_animation::EncoderOptions;
+use crate::token::Token;
 
 mod bounds;
 mod eval;
 mod parser;
+mod token;
+mod rgb;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None, author)]

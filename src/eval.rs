@@ -2,56 +2,22 @@ use image::{DynamicImage, GenericImageView, Pixel, Rgba};
 use rand::{Rng, RngCore};
 use std::collections::HashMap;
 use std::ops::{BitAnd, BitOr, BitXor};
-use crate::parser::Token;
-
-#[derive(Debug, Clone, Copy, Default)]
-struct RgbSum {
-    r: u8,
-    g: u8,
-    b: u8,
-}
-
-impl RgbSum {
-    const fn new(r: u8, b: u8, g: u8) -> Self {
-        Self { r, g, b }
-    }
-    
-    const fn new_red(r: u8) -> Self {
-        Self { r, g: 0, b: 0 }
-    }
-    
-    const fn new_green(g: u8) -> Self {
-        Self { r: 0, g, b: 0 }
-    }
-    
-    const fn new_blue(b: u8) -> Self {
-        Self { r: 0, g: 0, b }
-    }
-}
-
-impl From<[u8; 3]> for RgbSum {
-    fn from(rgb: [u8; 3]) -> Self {
-        Self {
-            r: rgb[0],
-            g: rgb[1],
-            b: rgb[2],
-        }
-    }
-}
+use crate::rgb::Rgb;
+use crate::token::Token;
 
 #[derive(Debug, Default)]
 struct SumSave {
-    v_y: Option<RgbSum>,
-    v_b: Option<RgbSum>,
-    v_e: Option<RgbSum>,
-    v_r: Option<HashMap<u8, RgbSum>>,
-    v_t: Option<RgbSum>,
-    v_g: Option<RgbSum>,
-    v_h: Option<RgbSum>,
-    v_v: Option<RgbSum>,
-    v_d: Option<RgbSum>,
-    v_high: Option<RgbSum>,
-    v_low: Option<RgbSum>,
+    v_y: Option<Rgb>,
+    v_b: Option<Rgb>,
+    v_e: Option<Rgb>,
+    v_r: Option<HashMap<u8, Rgb>>,
+    v_t: Option<Rgb>,
+    v_g: Option<Rgb>,
+    v_h: Option<Rgb>,
+    v_v: Option<Rgb>,
+    v_d: Option<Rgb>,
+    v_high: Option<Rgb>,
+    v_low: Option<Rgb>,
 }
 
 #[derive(Debug, Clone)]
@@ -65,10 +31,10 @@ pub struct EvalContext {
     pub ignore_state: bool,
 }
 
-fn binary_stack_op(stack: &mut Vec<RgbSum>, op: fn(u8, u8) -> u8) -> Result<(), String> {
+fn binary_stack_op(stack: &mut Vec<Rgb>, op: fn(u8, u8) -> u8) -> Result<(), String> {
     let b = stack.pop().ok_or("Stack underflow")?;
     let a = stack.pop().ok_or("Stack underflow")?;
-    stack.push(RgbSum::new(op(a.r, b.r), op(a.g, b.g), op(a.b, b.b)));
+    stack.push(Rgb::new(op(a.r, b.r), op(a.g, b.g), op(a.b, b.b)));
     Ok(())
 }
 
@@ -78,7 +44,7 @@ enum ChannelOp {
     BitRShift,
 }
 
-fn channel_op(stack: &mut Vec<RgbSum>, op: ChannelOp) -> Result<(), String> {
+fn channel_op(stack: &mut Vec<Rgb>, op: ChannelOp) -> Result<(), String> {
     let b = stack.pop().ok_or("Stack underflow")?;
     let a = stack.pop().ok_or("Stack underflow")?;
 
@@ -100,7 +66,7 @@ fn channel_op(stack: &mut Vec<RgbSum>, op: ChannelOp) -> Result<(), String> {
         ),
     };
 
-    stack.push(RgbSum::new(rr, gg, bb));
+    stack.push(Rgb::new(rr, gg, bb));
     Ok(())
 }
 
@@ -131,7 +97,7 @@ pub fn eval(
         return Ok(Rgba([0, 0, 0, 0]));
     }
 
-    let mut stack: Vec<RgbSum> = Vec::with_capacity(tokens.len());
+    let mut stack: Vec<Rgb> = Vec::with_capacity(tokens.len());
 
     let div = |a: u8, b: u8| -> u8 {
         if b == 0 {
@@ -167,7 +133,7 @@ pub fn eval(
         }
     };
 
-    let rgb_from_colors = |colors: &[(i32, i32); 3]| -> RgbSum {
+    let rgb_from_colors = |colors: &[(i32, i32); 3]| -> Rgb {
         let mut rgb = [0; 3];
         for (i, (xx, yy)) in colors.iter().enumerate() {
             let x = (xx + x as i32) as u32;
@@ -175,14 +141,14 @@ pub fn eval(
             let pixel = get_pixel_in_bounds(x, y);
             rgb[i] = pixel[i];
         }
-        RgbSum::from(rgb)
+        Rgb::from(rgb)
     };
 
     let mut saved = SumSave::default();
 
     for tok in tokens {
         match tok {
-            Token::Num(n) => stack.push(RgbSum::new(n, n, n)),
+            Token::Num(n) => stack.push(Rgb::new(n, n, n)),
 
             Token::Add => binary_stack_op(&mut stack, u8::wrapping_add)?,
             Token::Sub => binary_stack_op(&mut stack, u8::wrapping_sub)?,
@@ -202,7 +168,7 @@ pub fn eval(
                 let b = stack.pop().ok_or("Stack underflow")?;
                 let a = stack.pop().ok_or("Stack underflow")?;
 
-                stack.push(RgbSum::new(
+                stack.push(Rgb::new(
                     if a.r > b.r { 255 } else { 0 },
                     if a.g > b.g { 255 } else { 0 },
                     if a.b > b.b { 255 } else { 0 },
@@ -229,9 +195,9 @@ pub fn eval(
             }
 
             Token::RGBColor((token, num)) => match token {
-                'R' => stack.push(RgbSum::new_red(num)),
-                'G' => stack.push(RgbSum::new_blue(num)),
-                'B' => stack.push(RgbSum::new_green(num)),
+                'R' => stack.push(Rgb::new_red(num)),
+                'G' => stack.push(Rgb::new_blue(num)),
+                'B' => stack.push(Rgb::new_green(num)),
                 _ => return Err(format!("Unexpected token: {:?}", token)),
             },
 
@@ -245,7 +211,7 @@ pub fn eval(
 
                 let (nr, ng, nb) = adjust_brightness_hsv(r, g, b, factor);
 
-                stack.push(RgbSum::new(nr, ng, nb));
+                stack.push(Rgb::new(nr, ng, nb));
             }
 
             Token::Invert => {
@@ -257,18 +223,18 @@ pub fn eval(
                 let g = new_rgba[1];
                 let b = new_rgba[2];
 
-                stack.push(RgbSum::new(r, g, b));
+                stack.push(Rgb::new(r, g, b));
             }
 
             Token::Char(c) => match c {
-                'c' => stack.push(RgbSum::new(r, g, b)),
+                'c' => stack.push(Rgb::new(r, g, b)),
                 'Y' => {
                     let v_y = match saved.v_y {
                         Some(v_y) => v_y,
                         None => {
                             let y =
                                 f64::from(b).mul_add(0.0722, f64::from(r).mul_add(0.299, f64::from(g) * 0.587));
-                            let v_y = RgbSum::new(y as u8, y as u8, y as u8);
+                            let v_y = Rgb::new(y as u8, y as u8, y as u8);
                             saved.v_y = Some(v_y);
                             v_y
                         }
@@ -276,14 +242,14 @@ pub fn eval(
 
                     stack.push(v_y);
                 }
-                's' => stack.push(RgbSum::new(sr, sg, sb)),
+                's' => stack.push(Rgb::new(sr, sg, sb)),
                 'x' => {
                     let xu = three_rule(x, width);
-                    stack.push(RgbSum::new(xu, xu, xu));
+                    stack.push(Rgb::new(xu, xu, xu));
                 }
                 'y' => {
                     let yu = three_rule(y, height);
-                    stack.push(RgbSum::new(yu, yu, yu));
+                    stack.push(Rgb::new(yu, yu, yu));
                 }
 
                 't' => {
@@ -354,7 +320,7 @@ pub fn eval(
                                 .wrapping_add(boxed[6].b)
                                 .wrapping_sub(boxed[2].b);
 
-                            let v_e = RgbSum::new(rr, gg, bb);
+                            let v_e = Rgb::new(rr, gg, bb);
                             saved.v_e = Some(v_e);
                             v_e
                         }
@@ -381,7 +347,7 @@ pub fn eval(
                                 boxed[6].b, boxed[7].b, boxed[8].b,
                             ]);
 
-                            let v_b = RgbSum::new((rr / 9) as u8, (gg / 9) as u8, (bb / 9) as u8);
+                            let v_b = Rgb::new((rr / 9) as u8, (gg / 9) as u8, (bb / 9) as u8);
                             if !ignore_state {
                                 saved.v_b = Some(v_b);
                             }
@@ -410,7 +376,7 @@ pub fn eval(
                                 boxed[6].b, boxed[7].b, boxed[8].b,
                             ]);
 
-                            let v_h = RgbSum::new(r_m, g_m, b_m);
+                            let v_h = Rgb::new(r_m, g_m, b_m);
 
                             if !ignore_state {
                                 saved.v_high = Some(v_h);
@@ -440,7 +406,7 @@ pub fn eval(
                                 boxed[6].b, boxed[7].b, boxed[8].b,
                             ]);
 
-                            let v_l = RgbSum::new(r_m, g_m, b_m);
+                            let v_l = Rgb::new(r_m, g_m, b_m);
                             if !ignore_state {
                                 saved.v_low = Some(v_l);
                             }
@@ -450,7 +416,7 @@ pub fn eval(
 
                     stack.push(v_l);
                 }
-                'N' => stack.push(RgbSum::new(
+                'N' => stack.push(Rgb::new(
                     rng.gen_range(0..=255),
                     rng.gen_range(0..=255),
                     rng.gen_range(0..=255),
@@ -467,7 +433,7 @@ pub fn eval(
 
                             let pixel = input.get_pixel(h, y).0;
 
-                            let v_h = RgbSum::new(pixel[0], pixel[1], pixel[2]);
+                            let v_h = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
                                 saved.v_h = Some(v_h);
                             }
@@ -484,7 +450,7 @@ pub fn eval(
                             let v = height - y - 1;
                             let pixel = input.get_pixel(x, v).0;
 
-                            let v_v = RgbSum::new(pixel[0], pixel[1], pixel[2]);
+                            let v_v = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
                                 saved.v_v = Some(v_v);
                             }
@@ -502,7 +468,7 @@ pub fn eval(
                             let y = height - y - 1;
                             let pixel = input.get_pixel(x, y).0;
 
-                            let v_d = RgbSum::new(pixel[0], pixel[1], pixel[2]);
+                            let v_d = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
                                 saved.v_d = Some(v_d);
                             }
@@ -524,27 +490,27 @@ pub fn eval(
 }
 
 #[inline]
-fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [RgbSum; 9] {
+fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rgb; 9] {
     let mut k = 0;
 
-    let mut boxed: [RgbSum; 9] = [RgbSum::default(); 9];
+    let mut boxed: [Rgb; 9] = [Rgb::default(); 9];
 
     for i in x - 1..=x + 1 {
         for j in y - 1..=y + 1 {
             if i == x && j == y {
-                boxed[k] = RgbSum { r, g, b };
+                boxed[k] = Rgb { r, g, b };
                 k += 1;
                 continue;
             }
 
             if i < 0 || j < 0 {
-                boxed[k] = RgbSum::default();
+                boxed[k] = Rgb::default();
                 k += 1;
                 continue;
             }
 
             let pixel = input.get_pixel(i as u32, j as u32).0;
-            boxed[k] = RgbSum {
+            boxed[k] = Rgb {
                 r: pixel[0],
                 g: pixel[1],
                 b: pixel[2],

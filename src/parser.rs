@@ -1,194 +1,30 @@
 #![allow(dead_code)]
-use ansiterm::{Color, Style};
 use std::collections::VecDeque;
-use std::fmt::Formatter;
-use serde::{Serialize, Deserialize};
+use std::iter::Peekable;
+use std::str::Chars;
+use crate::token::Token;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Copy, Serialize, Deserialize)]
-pub enum Token {
-    Num(u8),
-    Random(u8),
-    RGBColor((char, u8)),
-    Brightness(u8),
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Mod,
-    Pow,
-    BitAnd,
-    BitOr,
-    BitAndNot,
-    BitXor,
-    BitLShift,
-    BitRShift,
-    Greater,
-    Weight,
-    LeftParen,
-    RightParen,
-    Char(char),
-    Invert,
-}
-
-pub trait DisplayStyle {
-    fn get_style(&self) -> Style;
-}
-
-impl DisplayStyle for Token {
-    fn get_style(&self) -> Style {
-        match self {
-            Self::Num(_) => Style::new().fg(Color::BrightYellow),
-            Self::Greater => Style::new().fg(Color::BrightBlue),
-            Self::Char(_) => Style::new().fg(Color::BrightBlue),
-            Self::BitLShift => Style::new().fg(Color::BrightYellow),
-            Self::BitRShift => Style::new().fg(Color::BrightYellow),
-            Self::LeftParen => Style::new().fg(Color::BrightCyan),
-            Self::RightParen => Style::new().fg(Color::BrightCyan),
-            Self::BitAnd => Style::new().fg(Color::BrightYellow),
-            Self::BitXor => Style::new().fg(Color::BrightYellow),
-            Self::Sub => Style::new().fg(Color::BrightBlue),
-            Self::Add => Style::new().fg(Color::BrightBlue),
-            Self::Div => Style::new().fg(Color::BrightBlue),
-            Self::Mul => Style::new().fg(Color::BrightBlue),
-            Self::Mod => Style::new().fg(Color::BrightBlue),
-            Self::BitAndNot => Style::new().fg(Color::BrightYellow),
-            Self::BitOr => Style::new().fg(Color::BrightYellow),
-            Self::Pow => Style::new().fg(Color::BrightYellow),
-            Self::Weight => Style::new().fg(Color::BrightYellow),
-            Self::Random(_) => Style::new().fg(Color::BrightBlue),
-            Self::RGBColor(_) => Style::new().fg(Color::BrightBlue),
-            Self::Brightness(_) => Style::new().fg(Color::BrightBlue),
-            Self::Invert => Style::new().fg(Color::BrightBlue),
-        }
+fn parse_value(value_str: &str, default: u8, current_position: usize) -> Result<u8, String> {
+    if value_str.is_empty() {
+        Ok(default)
+    } else {
+        value_str
+            .parse::<u8>()
+            .map_err(|_| format!("Invalid value specified at position {}", current_position))
     }
 }
-impl std::fmt::Display for Token {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
-        let mut content: Option<&str> = None;
-        match self {
-            Self::Char(ch) => match ch {
-                'c' => {
-                    content = Some("Current Pixel Value");
-                }
-                'b' => {
-                    content = Some("Blurred");
-                }
-                'h' => {
-                    content = Some("Horizontal");
-                }
-                'v' => {
-                    content = Some("Vertical");
-                }
-                'd' => {
-                    content = Some("Diagonal");
-                }
-                'Y' => {
-                    content = Some("Luminosity");
-                }
-                'N' => {
-                    content = Some("Noise");
-                }
-                'R' => {
-                    content = Some("Red");
-                }
-                'G' => {
-                    content = Some("Green");
-                }
-                'B' => {
-                    content = Some("Blue");
-                }
-                's' => {
-                    content = Some("Previous Saved Pixel Value");
-                }
-                't' => {
-                    content = Some("Random Color in 6x6 Grid");
-                }
-                'g' => {
-                    content = Some("Random Color in the Entire Image");
-                }
-                'x' => {
-                    content = Some("X Coordinate");
-                }
-                'y' => {
-                    content = Some("Y Coordinate");
-                }
-                'H' => {
-                    content = Some("Highest Value");
-                }
-                'L' => {
-                    content = Some("Lowest Value");
-                }
-                _ => {}
-            },
-            Self::BitAnd => {
-                content = Some("Bitwise AND");
-            }
-            Self::BitAndNot => {
-                content = Some("Bitwise AND NOT");
-            }
-            Self::BitOr => {
-                content = Some("Bitwise OR");
-            }
-            Self::BitXor => {
-                content = Some("Bitwise XOR");
-            }
-            Self::BitLShift => {
-                content = Some("Bitwise Left Shift");
-            }
-            Self::BitRShift => {
-                content = Some("Bitwise Right Shift");
-            }
-            Self::Add => {
-                content = Some("Addition");
-            }
-            Self::Sub => {
-                content = Some("Subtraction");
-            }
-            Self::Mul => {
-                content = Some("Multiplication");
-            }
-            Self::Div => {
-                content = Some("Division");
-            }
-            Self::Mod => {
-                content = Some("Modulus");
-            }
-            Self::Pow => {
-                content = Some("Power");
-            }
-            Self::Greater => {
-                content = Some("Greater");
-            }
-            Self::Weight => {
-                content = Some("Weight");
-            }
-            Self::Random(range) => {
-                content = Some(format!("Random color grid -{range}x{range}").leak());
-            }
-            Self::RGBColor((part, val)) => {
-                content = Some(format!("RGB Color - {part}: {val}").leak());
-            },
-            Self::Brightness(val) => {
-                content = Some(format!("Brightness - {val}").leak());
-            },
-            Self::Invert => {
-                content = Some("Invert");
-            }
-            _ => {}
-        }
-        match content {
-            Some(content) => {
-                let style = self.get_style();
-                let painted = style.paint(content);
-                f.write_str(painted.to_string().as_str())
-            }
-            None => {
-                let style = self.get_style();
-                let painted = style.paint(format!("{:?}", self));
-                f.write_str(painted.to_string().as_str())
-            }
+
+fn read_digits(chars_iter: &mut Peekable<Chars<'_>>, current_position: &mut usize) -> String {
+    let mut range_str = String::new();
+    while let Some(&next_char) = chars_iter.peek() {
+        if next_char.is_ascii_digit() {
+            range_str.push(chars_iter.next().unwrap());
+            *current_position += 1;
+        } else {
+            break;
         }
     }
+    range_str
 }
 
 pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
@@ -231,23 +67,9 @@ pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
             }
             'r' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
-                let mut range_str = String::new();
-                while let Some(&next_char) = chars_iter.peek() {
-                    if next_char.is_ascii_digit() {
-                        range_str.push(chars_iter.next().unwrap());
-                        current_position += 1;
-                    } else {
-                        break;
-                    }
-                }
-                let range = if range_str.is_empty() {
-                    1
-                } else {
-                    range_str.parse::<u8>().map_err(|_| {
-                        format!("Invalid range specified at position {}", current_position)
-                    })?
-                };
 
+                let range_str = read_digits(&mut chars_iter, &mut current_position);
+                let range = parse_value(&range_str, 1, current_position)?;
                 if range == 0 {
                     return Err("Range cannot be 0 just use 'c'".to_string());
                 }
@@ -257,46 +79,19 @@ pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
             'R' | 'G' | 'B' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
                 let part = c;
-                let mut value_str = String::new();
-                while let Some(&next_char) = chars_iter.peek() {
-                    if next_char.is_ascii_digit() {
-                        value_str.push(chars_iter.next().unwrap());
-                        current_position += 1;
-                    } else {
-                        break;
-                    }
-                }
-                let value = if value_str.is_empty() {
-                    255
-                } else {
-                    value_str.parse::<u8>().map_err(|_| {
-                        format!("Invalid value specified at position {}", current_position)
-                    })?
-                };
+
+                let value_str = read_digits(&mut chars_iter, &mut current_position);
+                let value = parse_value(&value_str, 255, current_position)?;
                 output_queue.push_back(Token::RGBColor((part, value)));
             }
             'b' => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
-                let mut value_str = String::new();
-                while let Some(&next_char) = chars_iter.peek() {
-                    if next_char.is_ascii_digit() {
-                        value_str.push(chars_iter.next().unwrap());
-                        current_position += 1;
-                    } else {
-                        break;
-                    }
-                }
-                let value = if value_str.is_empty() {
-                    255
-                } else {
-                    value_str.parse::<u8>().map_err(|_| {
-                        format!("Invalid value specified at position {}", current_position)
-                    })?
-                };
+
+                let value_str = read_digits(&mut chars_iter, &mut current_position);
+                let value = parse_value(&value_str, 255, current_position)?;
                 output_queue.push_back(Token::Brightness(value));
             }
             'i' => {
-                // this is just invert
                 output_queue.push_back(Token::Invert);
             }
             c if char_to_token(c).is_some() => {
