@@ -1,4 +1,4 @@
-use image::{DynamicImage, GenericImageView, Rgba};
+use image::{DynamicImage, GenericImageView, Pixel, Rgba};
 use rand::{Rng, RngCore};
 use std::collections::HashMap;
 
@@ -282,6 +282,37 @@ pub fn eval(
                 'B' => stack.push(RgbSum::new(0, 0, num)),
                 _ => return Err(format!("Unexpected token: {:?}", token)),
             },
+
+            Token::Brightness(brightness) => {
+                let pixel = input.get_pixel(x, y);
+                let r = pixel[0];
+                let g = pixel[1];
+                let b = pixel[2];
+
+
+                if brightness != 0 {
+                    let r = (f64::from(r) * brightness as f64).round() as u8;
+                    let g = (f64::from(g) * brightness as f64).round() as u8;
+                    let b = (f64::from(b) * brightness as f64).round() as u8;
+                    stack.push(RgbSum::new(r, g, b));
+                    continue;
+                } else {
+                    // get default brightness
+                    stack.push(RgbSum::new(r, g, b));
+                }
+            }
+
+            Token::Invert => {
+                let pixel = input.get_pixel(x, y);
+                let mut new_rgba = Rgba([pixel[0], pixel[1], pixel[2], pixel[3]]);
+                new_rgba.invert();
+
+                let r = new_rgba[0];
+                let g = new_rgba[1];
+                let b = new_rgba[2];
+
+                stack.push(RgbSum::new(r, g, b));
+            }
 
             Token::Char(c) => match c {
                 'c' => stack.push(RgbSum::new(r, g, b)),

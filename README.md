@@ -14,7 +14,9 @@ returning a new one. The allowed operators are:
 * `R{Num}` the red color component defined by `Num` (i.e. `R255` is the same as `R`)
 * `G{Num}` the green color component defined by `Num` (i.e. `G255` is the same as `G`)
 * `B{Num}` the blue color component defined by `Num` (i.e. `B255` is the same as `B`)
-* 
+* `i` inverts the color component
+* `b{Num}` the brightness of the color component defined by `Num` (i.e. `b255` is the same as `b`)
+
 ###  Ported from go-glitch
 * `+` plus
 * `-` minus

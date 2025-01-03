@@ -9,6 +9,7 @@ pub enum Token {
     Num(u8),
     Random(u8),
     RGBColor((char, u8)),
+    Brightness(u8),
     Add,
     Sub,
     Mul,
@@ -26,6 +27,7 @@ pub enum Token {
     LeftParen,
     RightParen,
     Char(char),
+    Invert,
 }
 
 pub trait DisplayStyle {
@@ -55,6 +57,8 @@ impl DisplayStyle for Token {
             Self::Weight => Style::new().fg(Color::BrightYellow),
             Self::Random(_) => Style::new().fg(Color::BrightBlue),
             Self::RGBColor(_) => Style::new().fg(Color::BrightBlue),
+            Self::Brightness(_) => Style::new().fg(Color::BrightBlue),
+            Self::Invert => Style::new().fg(Color::BrightBlue),
         }
     }
 }
@@ -163,6 +167,12 @@ impl std::fmt::Display for Token {
             }
             Self::RGBColor((part, val)) => {
                 content = Some(format!("RGB Color - {part}: {val}").leak());
+            },
+            Self::Brightness(val) => {
+                content = Some(format!("Brightness - {val}").leak());
+            },
+            Self::Invert => {
+                content = Some("Invert");
             }
             _ => {}
         }
@@ -264,6 +274,30 @@ pub fn shunting_yard(input: &str) -> Result<Vec<Token>, String> {
                     })?
                 };
                 output_queue.push_back(Token::RGBColor((part, value)));
+            }
+            'b' => {
+                push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
+                let mut value_str = String::new();
+                while let Some(&next_char) = chars_iter.peek() {
+                    if next_char.is_ascii_digit() {
+                        value_str.push(chars_iter.next().unwrap());
+                        current_position += 1;
+                    } else {
+                        break;
+                    }
+                }
+                let value = if value_str.is_empty() {
+                    255
+                } else {
+                    value_str.parse::<u8>().map_err(|_| {
+                        format!("Invalid value specified at position {}", current_position)
+                    })?
+                };
+                output_queue.push_back(Token::Brightness(value));
+            }
+            'i' => {
+                // this is just invert
+                output_queue.push_back(Token::Invert);
             }
             c if char_to_token(c).is_some() => {
                 push_number_buffer(&mut number_buffer, &mut output_queue, current_position)?;
