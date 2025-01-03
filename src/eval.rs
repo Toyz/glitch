@@ -339,23 +339,7 @@ pub fn eval(
                     let yu = three_rule(y, height);
                     stack.push(RgbSum::new(yu, yu, yu));
                 }
-                /*'r' => {
-                    let v_r = match saved.v_r {
-                        Some(v_r) => v_r,
-                        None => {
-                            let colors =
-                                gen_random_position(-1, 1, &mut rng);
-
-                            let rgb = rgb_from_colors(&colors);
-                            if !ignore_state {
-                                saved.v_r = Some(rgb);
-                            }
-                            rgb
-                        }
-                    };
-
-                    stack.push(v_r);
-                }*/
+                
                 't' => {
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
@@ -530,6 +514,11 @@ pub fn eval(
                         Some(v_h) => v_h,
                         None => {
                             let h = width - x - 1;
+                            // check that we are in bounds
+                            if h >= width {
+                                return Err("Out of bounds".to_string());
+                            }
+
                             let pixel = input.get_pixel(h, y).0;
 
                             let v_h = RgbSum::new(pixel[0], pixel[1], pixel[2]);

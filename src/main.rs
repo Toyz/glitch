@@ -1,9 +1,7 @@
 #![deny(clippy::perf, clippy::correctness)]
 #![warn(
     rust_2018_idioms,
-    clippy::nursery,
     clippy::complexity,
-    clippy::cognitive_complexity
 )]
 
 use crate::eval::EvalContext;
@@ -13,14 +11,13 @@ use console::{style, Emoji};
 use dirs::home_dir;
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
-use image::{
-    guess_format, AnimationDecoder, DynamicImage, GenericImage, GenericImageView, ImageDecoder,
-    ImageFormat, Pixel,
-};
+use image::codecs::webp::WebPDecoder;
+use image::{guess_format, AnimationDecoder, DynamicImage, Frame, GenericImage, GenericImageView, ImageDecoder, ImageFormat, Pixel, RgbaImage};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
 use rayon::prelude::*;
+use std::fs;
 use std::fs::File;
 use std::hash::{DefaultHasher, Hash, Hasher};
 use std::io::{BufRead, BufReader, BufWriter, Read, Write};
@@ -28,7 +25,7 @@ use std::iter::Filter;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
-use std::fs;
+use webp_animation::EncoderOptions;
 
 mod bounds;
 mod eval;
@@ -141,16 +138,33 @@ fn main() -> anyhow::Result<()> {
     let load_parsed_from_cache = get_precompiled_cache(format!("{}", expression_list_hash).as_str());
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
 
+    let mut from_cache = false;
     if let Some(cache) = load_parsed_from_cache {
-        let serialized = fs::read(cache)?;
-        parsed = bincode::deserialize(&serialized)?;
-        println!(
-            "{} Loaded {} Expression{} from cache...",
-            OK,
-            style(parsed.len()).bold().cyan(),
-            if parsed.len() > 1 { "s" } else { "" }
-        );
-    } else {
+        let serialized = fs::read(&cache)?;
+        parsed = match bincode::deserialize::<Vec<(String, Vec<Token>)>>(&serialized) {
+            Ok(p) => {
+                println!(
+                    "{} Loaded {} Expression{} from cache...",
+                    OK,
+                    style(p.len()).bold().cyan(),
+                    if p.len() > 1 { "s" } else { "" }
+                );
+
+                from_cache = true;
+                p
+            }
+            Err(err) => {
+                println!("{} Failed to deserialize cache...", ERROR);
+                println!("{} {} -> {}", ERROR, style("ERROR").red().bold(), err);
+
+                // delte the cache file
+                fs::remove_file(cache)?;
+                vec![]
+            }
+        }
+    }
+
+    if !from_cache {
         println!(
             "{} Parsing {} Expression{}...",
             LOOKING_GLASS,
@@ -241,6 +255,7 @@ fn handle_image(
                 ImageFormat::Png => "png",
                 ImageFormat::Jpeg => "jpg",
                 ImageFormat::Gif => "gif",
+                ImageFormat::WebP => "webp",
                 _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
             };
             format!("output.{}", ext)
@@ -256,6 +271,11 @@ fn handle_image(
     );
 
     let multi_progress = indicatif::MultiProgress::new();
+
+    if args.verbose {
+        // print the filetype
+        println!("{} Filetype: {}", IMAGE, style(format!("{:?}", format).to_lowercase()).bold().cyan());
+    }
 
     match format {
         ImageFormat::Png => {
@@ -273,6 +293,72 @@ fn handle_image(
 
             let out = process(img, parsed, args, rand, Some(ProgressBar::new(0)))?;
             out.save_with_format(output.clone(), format)?;
+        }
+        ImageFormat::WebP => {
+            let reader = std::io::Cursor::new(img);
+            let img = WebPDecoder::new(reader)?;
+            let w = img.dimensions().0;
+            let h = img.dimensions().1;
+
+            let frames = img.into_frames().collect_frames()?;
+            let frame_count = frames.len();
+
+            println!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("WEBP").bold().cyan(), style(frames.len()).bold().cyan());
+
+            let frames_spin = multi_progress.add(ProgressBar::new(frame_count as u64));
+            frames_spin.set_style(
+                ProgressStyle::default_bar()
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")?
+            );
+
+
+            let seed = args.seed.unwrap();
+
+            let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
+            (0..frames.len()).into_par_iter().for_each(|i| {
+                let pb = multi_progress.add(ProgressBar::new(0));
+                pb.enable_steady_tick(Duration::from_millis(100));
+
+                let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
+
+                let frame = frames.get(i).expect("Failed to get frame").to_owned();
+                let delay = frame.delay().numer_denom_ms().0;
+
+                let img = frame.into_buffer();
+                let out = process(img.into(), parsed, args, &mut rng, Some(pb)).expect("Failed to process frame");
+
+                let frame = Frame::new(RgbaImage::from(out));
+                new_frames.lock().expect("failed to unlock").push((i, (frame, delay)));
+
+                frames_spin.inc(1);
+            });
+
+            let mut frames = new_frames.into_inner().expect("Failed to get frames");
+            frames.sort_by(|a, b| a.0.cmp(&b.0));
+
+            frames_spin.reset();
+            frames_spin.set_length(frames.len() as u64);
+            frames_spin.set_message("Encoding frames...");
+            let options = EncoderOptions {
+                encoding_config: Some(webp_animation::EncodingConfig::new_lossy(100.0)),
+                ..Default::default()
+            };
+            let mut encoder = webp_animation::prelude::Encoder::new_with_options((w, h), options).expect("Failed to create encoder");
+            let mut last_ms = 0i32;
+            for (i, frame) in frames {
+                let buffer = frame.0.into_buffer();
+
+                encoder.add_frame(&buffer, last_ms).unwrap_or_else(|e| panic!("Failed to add frame: {} ms: {} dur: {} -> {}", i, last_ms, frame.1, e));
+
+                last_ms += frame.1 as i32;
+
+                frames_spin.inc(1);
+            }
+
+            frames_spin.finish_and_clear();
+
+            let webp_data = encoder.finalize(last_ms).unwrap();
+            fs::write(output.clone(), webp_data).expect("Failed to write webp data");
         }
         ImageFormat::Gif => {
             let mut reader = std::io::Cursor::new(img);
@@ -293,7 +379,7 @@ fn handle_image(
             let frames_spin = multi_progress.add(ProgressBar::new(frame_count as u64));
             frames_spin.set_style(
                 ProgressStyle::default_bar()
-                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")?
+                    .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")?
             );
 
             let seed = args.seed.unwrap();
@@ -322,10 +408,16 @@ fn handle_image(
                 frames_spin.inc(1);
             });
 
+            frames_spin.reset();
+            frames_spin.set_length(frame_count as u64);
+            frames_spin.set_message("Encoding frames...");
+            
             let mut frames = new_frames.into_inner().expect("Failed to get frames");
             frames.sort_by(|a, b| a.0.cmp(&b.0));
             for (_, frame) in frames {
                 encoder.write_frame(&frame)?;
+                
+                frames_spin.inc(1);
             }
 
             frames_spin.finish_and_clear();
