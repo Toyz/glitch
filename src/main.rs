@@ -2,6 +2,7 @@
 #![warn(
     rust_2018_idioms,
     clippy::complexity,
+    clippy::nursery,
 )]
 
 use crate::eval::EvalContext;
@@ -411,12 +412,12 @@ fn handle_image(
             frames_spin.reset();
             frames_spin.set_length(frame_count as u64);
             frames_spin.set_message("Encoding frames...");
-            
+
             let mut frames = new_frames.into_inner().expect("Failed to get frames");
             frames.sort_by(|a, b| a.0.cmp(&b.0));
             for (_, frame) in frames {
                 encoder.write_frame(&frame)?;
-                
+
                 frames_spin.inc(1);
             }
 

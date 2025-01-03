@@ -1,6 +1,6 @@
 [package]
 name = "glitch"
-version = "0.5.0"
+version = "0.5.1"
 edition = "2021"
 authors = ["Helba <ai@helba.dev>"]
 description = "A command-line tool to glitch images."

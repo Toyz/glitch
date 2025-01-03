@@ -1,7 +1,7 @@
 use image::{DynamicImage, GenericImageView, Pixel, Rgba};
 use rand::{Rng, RngCore};
 use std::collections::HashMap;
-
+use std::ops::{BitAnd, BitOr, BitXor};
 use crate::parser::Token;
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -51,6 +51,45 @@ pub struct EvalContext {
     pub position: (u32, u32),
 
     pub ignore_state: bool,
+}
+
+fn binary_stack_op(stack: &mut Vec<RgbSum>, op: fn(u8, u8) -> u8) -> Result<(), String> {
+    let b = stack.pop().ok_or("Stack underflow")?;
+    let a = stack.pop().ok_or("Stack underflow")?;
+    stack.push(RgbSum::new(op(a.r, b.r), op(a.g, b.g), op(a.b, b.b)));
+    Ok(())
+}
+
+enum ChannelOp {
+    Pow,
+    BitLShift,
+    BitRShift,
+}
+
+fn channel_op(stack: &mut Vec<RgbSum>, op: ChannelOp) -> Result<(), String> {
+    let b = stack.pop().ok_or("Stack underflow")?;
+    let a = stack.pop().ok_or("Stack underflow")?;
+
+    let (rr, gg, bb) = match op {
+        ChannelOp::Pow => (
+            a.r.wrapping_pow(b.r.into()),
+            a.g.wrapping_pow(b.g.into()),
+            a.b.wrapping_pow(b.b.into()),
+        ),
+        ChannelOp::BitLShift => (
+            a.r.wrapping_shl(b.r.into()),
+            a.g.wrapping_shl(b.g.into()),
+            a.b.wrapping_shl(b.b.into()),
+        ),
+        ChannelOp::BitRShift => (
+            a.r.wrapping_shr(b.r.into()),
+            a.g.wrapping_shr(b.g.into()),
+            a.b.wrapping_shr(b.b.into()),
+        ),
+    };
+
+    stack.push(RgbSum::new(rr, gg, bb));
+    Ok(())
 }
 
 pub fn eval(
@@ -133,118 +172,19 @@ pub fn eval(
         match tok {
             Token::Num(n) => stack.push(RgbSum::new(n, n, n)),
 
-            Token::Add => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    a.r.wrapping_add(b.r),
-                    a.g.wrapping_add(b.g),
-                    a.b.wrapping_add(b.b),
-                ));
-            }
-
-            Token::Sub => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    a.r.wrapping_sub(b.r),
-                    a.g.wrapping_sub(b.g),
-                    a.b.wrapping_sub(b.b),
-                ));
-            }
-
-            Token::Mul => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    a.r.wrapping_mul(b.r),
-                    a.g.wrapping_mul(b.g),
-                    a.b.wrapping_mul(b.b),
-                ));
-            }
-
-            Token::Div => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(div(a.r, b.r), div(a.g, b.g), div(a.b, b.b)));
-            }
-
-            Token::Mod => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(modu(a.r, b.r), modu(a.g, b.g), modu(a.b, b.b)));
-            }
-
-            Token::Pow => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    a.r.wrapping_pow(b.r.into()),
-                    a.g.wrapping_pow(b.g.into()),
-                    a.b.wrapping_pow(b.b.into()),
-                ));
-            }
-
-            Token::BitAnd => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(a.r & b.r, a.g & b.g, a.b & b.b));
-            }
-
-            Token::BitOr => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(a.r | b.r, a.g | b.g, a.b | b.b));
-            }
-
-            Token::BitAndNot => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(
-                    bit_and_not(a.r, b.r),
-                    bit_and_not(a.g, b.g),
-                    bit_and_not(a.b, b.b),
-                ));
-            }
-
-            Token::BitXor => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-                stack.push(RgbSum::new(a.r ^ b.r, a.g ^ b.g, a.b ^ b.b));
-            }
-
-            Token::BitLShift => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-
-                let rr = a.r.wrapping_shl(b.r.into());
-                let gg = a.g.wrapping_shl(b.g.into());
-                let bb = a.b.wrapping_shl(b.b.into());
-
-                stack.push(RgbSum::new(rr, gg, bb));
-            }
-
-            Token::BitRShift => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-
-                let rr = a.r.wrapping_shr(b.r.into());
-                let gg = a.g.wrapping_shr(b.g.into());
-                let bb = a.b.wrapping_shr(b.b.into());
-
-                stack.push(RgbSum::new(rr, gg, bb));
-            }
-
-            Token::Weight => {
-                let b = stack.pop().ok_or("Stack underflow")?;
-                let a = stack.pop().ok_or("Stack underflow")?;
-
-                stack.push(RgbSum::new(
-                    weight(a.r, b.r),
-                    weight(a.g, b.g),
-                    weight(a.b, b.b),
-                ));
-            }
+            Token::Add => binary_stack_op(&mut stack, u8::wrapping_add)?,
+            Token::Sub => binary_stack_op(&mut stack, u8::wrapping_sub)?,
+            Token::Mul => binary_stack_op(&mut stack, u8::wrapping_mul)?,
+            Token::Div => binary_stack_op(&mut stack, div)?,
+            Token::Mod => binary_stack_op(&mut stack, modu)?,
+            Token::BitAnd => binary_stack_op(&mut stack, u8::bitand)?,
+            Token::BitOr => binary_stack_op(&mut stack, u8::bitor)?,
+            Token::BitXor => binary_stack_op(&mut stack, u8::bitxor)?,
+            Token::BitAndNot => binary_stack_op(&mut stack, bit_and_not)?,
+            Token::Weight => binary_stack_op(&mut stack, weight)?,
+            Token::Pow => channel_op(&mut stack, ChannelOp::Pow)?,
+            Token::BitLShift => channel_op(&mut stack, ChannelOp::BitLShift)?,
+            Token::BitRShift => channel_op(&mut stack, ChannelOp::BitRShift)?,
 
             Token::Greater => {
                 let b = stack.pop().ok_or("Stack underflow")?;
@@ -259,7 +199,7 @@ pub fn eval(
 
             Token::Random(num) => {
                 let neg = std::ops::Neg::neg(num as i8);
-                // check if the number exists in v_r hashmap
+
                 let v_r = saved.v_r.as_ref().and_then(|v| v.get(&num));
 
                 let v_r = if let Some(v) = v_r {
@@ -283,23 +223,17 @@ pub fn eval(
                 _ => return Err(format!("Unexpected token: {:?}", token)),
             },
 
-            Token::Brightness(brightness) => {
+            Token::Brightness(brightness_value) => {
+                let factor = (brightness_value as f64 / 255.0).clamp(0.0, 1.0);
+
                 let pixel = input.get_pixel(x, y);
                 let r = pixel[0];
                 let g = pixel[1];
                 let b = pixel[2];
 
+                let (nr, ng, nb) = adjust_brightness_hsv(r, g, b, factor);
 
-                if brightness != 0 {
-                    let r = (f64::from(r) * brightness as f64).round() as u8;
-                    let g = (f64::from(g) * brightness as f64).round() as u8;
-                    let b = (f64::from(b) * brightness as f64).round() as u8;
-                    stack.push(RgbSum::new(r, g, b));
-                    continue;
-                } else {
-                    // get default brightness
-                    stack.push(RgbSum::new(r, g, b));
-                }
+                stack.push(RgbSum::new(nr, ng, nb));
             }
 
             Token::Invert => {
@@ -339,7 +273,7 @@ pub fn eval(
                     let yu = three_rule(y, height);
                     stack.push(RgbSum::new(yu, yu, yu));
                 }
-                
+
                 't' => {
                     let v_t = match saved.v_t {
                         Some(v_t) => v_t,
@@ -633,4 +567,74 @@ fn wrapping_vec_add_u32(a: [u8; 8]) -> u32 {
         sum = sum.wrapping_add(i as u32);
     }
     sum
+}
+
+/// Convert an RGB (0–255) color into HSV, each component in [0.0, 1.0].
+fn rgb_to_hsv(r: u8, g: u8, b: u8) -> (f64, f64, f64) {
+    let rf = r as f64 / 255.0;
+    let gf = g as f64 / 255.0;
+    let bf = b as f64 / 255.0;
+
+    let cmax = rf.max(gf).max(bf);
+    let cmin = rf.min(gf).min(bf);
+    let delta = cmax - cmin;
+
+    // Hue calculation
+    let h = if delta < f64::EPSILON {
+        0.0
+    } else if (cmax - rf).abs() < f64::EPSILON {
+        60.0 * (((gf - bf) / delta) % 6.0)
+    } else if (cmax - gf).abs() < f64::EPSILON {
+        60.0 * (((bf - rf) / delta) + 2.0)
+    } else {
+        60.0 * (((rf - gf) / delta) + 4.0)
+    };
+
+    // Saturation
+    let s = if cmax < f64::EPSILON {
+        0.0
+    } else {
+        delta / cmax
+    };
+
+    // Value
+    let v = cmax;
+
+    // Normalize hue to be in [0, 360)
+    let mut hue = h;
+    if hue < 0.0 {
+        hue += 360.0;
+    }
+
+    (hue / 360.0, s, v)
+}
+
+/// Convert an HSV color (each in [0.0, 1.0]) back into RGB (0–255).
+fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
+    let h_deg = h * 360.0;
+    let c = v * s;
+    let x = c * (1.0 - ((h_deg / 60.0) % 2.0 - 1.0).abs());
+    let m = v - c;
+
+    let (rf, gf, bf) = match h_deg {
+        d if d < 60.0  => (c, x, 0.0),
+        d if d < 120.0 => (x, c, 0.0),
+        d if d < 180.0 => (0.0, c, x),
+        d if d < 240.0 => (0.0, x, c),
+        d if d < 300.0 => (x, 0.0, c),
+        _ => (c, 0.0, x),
+    };
+
+    let r = ((rf + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    let g = ((gf + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+    let b = ((bf + m) * 255.0).round().clamp(0.0, 255.0) as u8;
+
+    (r, g, b)
+}
+
+/// Scale the brightness (Value in HSV) by `factor` [0.0..=1.0].
+fn adjust_brightness_hsv(r: u8, g: u8, b: u8, factor: f64) -> (u8, u8, u8) {
+    let (h, s, v) = rgb_to_hsv(r, g, b);
+    let new_v = (v * factor).clamp(0.0, 1.0);
+    hsv_to_rgb(h, s, new_v)
 }
