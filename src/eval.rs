@@ -15,6 +15,18 @@ impl RgbSum {
     const fn new(r: u8, b: u8, g: u8) -> Self {
         Self { r, g, b }
     }
+    
+    const fn new_red(r: u8) -> Self {
+        Self { r, g: 0, b: 0 }
+    }
+    
+    const fn new_green(g: u8) -> Self {
+        Self { r: 0, g, b: 0 }
+    }
+    
+    const fn new_blue(b: u8) -> Self {
+        Self { r: 0, g: 0, b }
+    }
 }
 
 impl From<[u8; 3]> for RgbSum {
@@ -217,9 +229,9 @@ pub fn eval(
             }
 
             Token::RGBColor((token, num)) => match token {
-                'R' => stack.push(RgbSum::new(num, 0, 0)),
-                'G' => stack.push(RgbSum::new(0, num, 0)),
-                'B' => stack.push(RgbSum::new(0, 0, num)),
+                'R' => stack.push(RgbSum::new_red(num)),
+                'G' => stack.push(RgbSum::new_blue(num)),
+                'B' => stack.push(RgbSum::new_green(num)),
                 _ => return Err(format!("Unexpected token: {:?}", token)),
             },
 
