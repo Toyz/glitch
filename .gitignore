@@ -1,5 +1,2 @@
 /target
-*.png
-*.gif
-*.jpg
-*.jpeg
+output.*
