@@ -1,9 +1,9 @@
+use crate::rgb::Rgb;
+use crate::token::Token;
 use image::{DynamicImage, GenericImageView, Pixel, Rgba};
 use rand::{Rng, RngCore};
 use std::collections::HashMap;
 use std::ops::{BitAnd, BitOr, BitXor};
-use crate::rgb::Rgb;
-use crate::token::Token;
 
 #[derive(Debug, Default)]
 struct SumSave {
@@ -21,8 +21,8 @@ struct SumSave {
 }
 
 #[derive(Debug, Clone)]
-pub struct EvalContext {
-    pub tokens: Vec<Token>,
+pub struct EvalContext<'a> {
+    pub tokens: &'a [Token],
     pub size: (u32, u32),
     pub rgba: Rgba<u8>,
     pub saved_rgb: [u8; 3],
@@ -70,10 +70,10 @@ fn channel_op(stack: &mut Vec<Rgb>, op: ChannelOp) -> Result<(), String> {
     Ok(())
 }
 
-pub fn eval(
-    ctx: EvalContext,
+pub fn eval<R: RngCore>(
+    ctx: EvalContext<'_>,
     input: &DynamicImage,
-    rng: &mut Box<dyn RngCore>,
+    rng: &mut R,
 ) -> Result<Rgba<u8>, String> {
     let EvalContext {
         tokens,
@@ -146,7 +146,7 @@ pub fn eval(
 
     let mut saved = SumSave::default();
 
-    for tok in tokens {
+    for tok in tokens.iter().cloned() {
         match tok {
             Token::Num(n) => stack.push(Rgb::new(n, n, n)),
 
@@ -196,8 +196,8 @@ pub fn eval(
 
             Token::RGBColor((token, num)) => match token {
                 'R' => stack.push(Rgb::new_red(num)),
-                'G' => stack.push(Rgb::new_blue(num)),
-                'B' => stack.push(Rgb::new_green(num)),
+                'G' => stack.push(Rgb::new_green(num)),
+                'B' => stack.push(Rgb::new_blue(num)),
                 _ => return Err(format!("Unexpected token: {:?}", token)),
             },
 
@@ -232,8 +232,8 @@ pub fn eval(
                     let v_y = match saved.v_y {
                         Some(v_y) => v_y,
                         None => {
-                            let y =
-                                f64::from(b).mul_add(0.0722, f64::from(r).mul_add(0.299, f64::from(g) * 0.587));
+                            let y = f64::from(b)
+                                .mul_add(0.0722, f64::from(r).mul_add(0.299, f64::from(g) * 0.587));
                             let v_y = Rgb::new(y as u8, y as u8, y as u8);
                             saved.v_y = Some(v_y);
                             v_y
@@ -521,7 +521,7 @@ fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rg
     boxed
 }
 
-fn max(vals: [u8; 8]) -> u8  {
+fn max(vals: [u8; 8]) -> u8 {
     vals.iter().cloned().max().unwrap_or_default()
 }
 
@@ -529,7 +529,7 @@ fn min(vals: [u8; 8]) -> u8 {
     vals.iter().cloned().min().unwrap_or_default()
 }
 
-fn gen_random_position(min: i32, max: i32, rng: &mut Box<dyn RngCore>) -> [(i32, i32); 3] {
+fn gen_random_position<R: RngCore>(min: i32, max: i32, rng: &mut R) -> [(i32, i32); 3] {
     let mut positions = [(0, 0); 3];
     for i in positions.iter_mut() {
         i.0 = rng.gen_range(min..=max);
@@ -595,7 +595,7 @@ fn hsv_to_rgb(h: f64, s: f64, v: f64) -> (u8, u8, u8) {
     let m = v - c;
 
     let (rf, gf, bf) = match h_deg {
-        d if d < 60.0  => (c, x, 0.0),
+        d if d < 60.0 => (c, x, 0.0),
         d if d < 120.0 => (x, c, 0.0),
         d if d < 180.0 => (0.0, c, x),
         d if d < 240.0 => (0.0, x, c),

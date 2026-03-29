@@ -1,18 +1,18 @@
 #![deny(clippy::perf, clippy::correctness)]
-#![warn(
-    rust_2018_idioms,
-    clippy::complexity,
-    clippy::nursery,
-)]
+#![warn(rust_2018_idioms, clippy::complexity, clippy::nursery)]
 
 use crate::eval::EvalContext;
+use crate::token::Token;
 use clap::Parser;
 use console::{style, Emoji};
 use dirs::home_dir;
 use gif::{Encoder, Repeat};
 use image::codecs::gif::GifDecoder;
 use image::codecs::webp::WebPDecoder;
-use image::{guess_format, AnimationDecoder, DynamicImage, Frame, GenericImage, GenericImageView, ImageDecoder, ImageFormat, Pixel, RgbaImage};
+use image::{
+    guess_format, AnimationDecoder, DynamicImage, Frame, GenericImage, GenericImageView,
+    ImageDecoder, ImageFormat, Pixel, RgbaImage,
+};
 use indicatif::{ProgressBar, ProgressStyle};
 use rand::prelude::StdRng;
 use rand::{RngCore, SeedableRng};
@@ -26,13 +26,12 @@ use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 use std::time::Duration;
 use webp_animation::EncoderOptions;
-use crate::token::Token;
 
 mod bounds;
 mod eval;
 mod parser;
-mod token;
 mod rgb;
+mod token;
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None, author)]
@@ -65,11 +64,21 @@ struct Args {
     threads: Option<u64>,
 
     /// The expressions to evaluate
-    #[arg(short, long, required_unless_present = "expression_file", long_help = "The expressions to evaluate")]
+    #[arg(
+        short,
+        long,
+        required_unless_present = "expression_file",
+        long_help = "The expressions to evaluate"
+    )]
     expressions: Vec<String>,
 
     /// A file containing expressions to evaluate
-    #[arg(short = 'f', long, required_unless_present = "expressions", long_help = "A file containing expressions to evaluate (Appended to the expressions provided)")]
+    #[arg(
+        short = 'f',
+        long,
+        required_unless_present = "expressions",
+        long_help = "A file containing expressions to evaluate (Appended to the expressions provided)"
+    )]
     expression_file: Option<PathBuf>,
 }
 
@@ -97,23 +106,14 @@ fn main() -> anyhow::Result<()> {
             style(&args.input).bold().cyan()
         );
     } else {
-        println!(
-            "{} Local File: {}",
-            IMAGE,
-            style(&args.input).bold().cyan()
-        );
+        println!("{} Local File: {}", IMAGE, style(&args.input).bold().cyan());
     }
 
-    // Determine which RNG to use based on the provided seed
+    // Determine seed and store in args
     let seed = get_random_seed(&args);
     args.seed = Some(seed);
-    let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
 
-    println!(
-        "{} Using Seed: {}",
-        SEED,
-        style(seed).bold().cyan()
-    );
+    println!("{} Using Seed: {}", SEED, style(seed).bold().cyan());
 
     if args.expressions.is_empty() && args.expression_file.is_none() {
         println!("{} No expressions provided...", ERROR);
@@ -123,8 +123,14 @@ fn main() -> anyhow::Result<()> {
     if let Some(path) = &args.expression_file {
         let reader = fs::File::open(path)?;
         let reader = BufReader::new(reader);
-        let expressions = reader.lines().collect::<Result<Vec<String>, std::io::Error>>()?;
-        let expressions: Vec<_> = Filter::collect(expressions.into_iter().filter(|e| !e.is_empty() && !e.starts_with('#')));
+        let expressions = reader
+            .lines()
+            .collect::<Result<Vec<String>, std::io::Error>>()?;
+        let expressions: Vec<_> = Filter::collect(
+            expressions
+                .into_iter()
+                .filter(|e| !e.is_empty() && !e.starts_with('#')),
+        );
 
         println!(
             "{} Reading {} Expression{} from file: {}",
@@ -138,7 +144,8 @@ fn main() -> anyhow::Result<()> {
     }
 
     let expression_list_hash = hash_strings(args.expressions.clone());
-    let load_parsed_from_cache = get_precompiled_cache(format!("{}", expression_list_hash).as_str());
+    let load_parsed_from_cache =
+        get_precompiled_cache(format!("{}", expression_list_hash).as_str());
     let mut parsed: Vec<(String, Vec<Token>)> = vec![];
 
     let mut from_cache = false;
@@ -180,9 +187,14 @@ fn main() -> anyhow::Result<()> {
             let spinner = ProgressBar::new_spinner();
             spinner.set_style(
                 ProgressStyle::with_template("{prefix:.bold.dim} {spinner} {wide_msg}")?
-                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ ")
+                    .tick_chars("⠁⠂⠄⡀⢀⠠⠐⠈ "),
             );
-            spinner.set_message(format!("Parsing [{}/{}] {}", idx, expression_count, style(e).bold().cyan()));
+            spinner.set_message(format!(
+                "Parsing [{}/{}] {}",
+                idx,
+                expression_count,
+                style(e).bold().cyan()
+            ));
             spinner.enable_steady_tick(Duration::from_millis(100));
 
             let tokens = match parser::shunting_yard(e) {
@@ -190,17 +202,28 @@ fn main() -> anyhow::Result<()> {
                 Err(err) => {
                     spinner.finish_and_clear();
 
-                    println!("{} Expression {} failed to parse...", ERROR, style(e).bold().cyan());
+                    println!(
+                        "{} Expression {} failed to parse...",
+                        ERROR,
+                        style(e).bold().cyan()
+                    );
                     println!("{} {} -> {}", ERROR, style("ERROR").red().bold(), err);
                     return Ok(());
                 }
             };
             spinner.finish_and_clear();
 
-            println!("{} [{}/{}] Parsed {} tokens from -> {}", OK, idx, expression_count, style(tokens.len()).cyan().bold(), style(e).bold().cyan());
+            println!(
+                "{} [{}/{}] Parsed {} tokens from -> {}",
+                OK,
+                idx,
+                expression_count,
+                style(tokens.len()).cyan().bold(),
+                style(e).bold().cyan()
+            );
 
             if args.verbose {
-                tokens.clone().iter().for_each(|t| {
+                tokens.iter().for_each(|t| {
                     println!("\t{}", t);
                 });
             }
@@ -214,7 +237,7 @@ fn main() -> anyhow::Result<()> {
         save_to_cache(format!("{}", expression_list_hash).as_str(), &serialized)?;
     }
 
-    handle_image(&args, &parsed, &mut rng)?;
+    handle_image(&args, &parsed)?;
     Ok(())
 }
 
@@ -225,11 +248,7 @@ fn download_image(url: &str) -> anyhow::Result<Vec<u8>> {
     Ok(img)
 }
 
-fn handle_image(
-    args: &Args,
-    parsed: &[(String, Vec<Token>)],
-    rand: &mut Box<dyn RngCore>,
-) -> anyhow::Result<(), anyhow::Error> {
+fn handle_image(args: &Args, parsed: &[(String, Vec<Token>)]) -> anyhow::Result<(), anyhow::Error> {
     let img = match &args.input {
         file if file.starts_with("http") => download_image(&args.input)?,
         file => {
@@ -277,24 +296,36 @@ fn handle_image(
 
     if args.verbose {
         // print the filetype
-        println!("{} Filetype: {}", IMAGE, style(format!("{:?}", format).to_lowercase()).bold().cyan());
+        println!(
+            "{} Filetype: {}",
+            IMAGE,
+            style(format!("{:?}", format).to_lowercase()).bold().cyan()
+        );
     }
 
     match format {
         ImageFormat::Png => {
             let img = image::load_from_memory(&img)?;
 
-            println!("{} Processing mode: 󰸭 {}", IMAGE, style("PNG").bold().cyan());
+            println!(
+                "{} Processing mode: 󰸭 {}",
+                IMAGE,
+                style("PNG").bold().cyan()
+            );
 
-            let out = process(img, parsed, args, rand, Some(ProgressBar::new(0)))?;
+            let out = process(img, parsed, args, Some(ProgressBar::new(0)))?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::Jpeg => {
             let img = image::load_from_memory(&img)?;
 
-            println!("{} Processing mode: 󰸭 {}", IMAGE, style("JPEG").bold().cyan());
+            println!(
+                "{} Processing mode: 󰸭 {}",
+                IMAGE,
+                style("JPEG").bold().cyan()
+            );
 
-            let out = process(img, parsed, args, rand, Some(ProgressBar::new(0)))?;
+            let out = process(img, parsed, args, Some(ProgressBar::new(0)))?;
             out.save_with_format(output.clone(), format)?;
         }
         ImageFormat::WebP => {
@@ -306,7 +337,12 @@ fn handle_image(
             let frames = img.into_frames().collect_frames()?;
             let frame_count = frames.len();
 
-            println!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("WEBP").bold().cyan(), style(frames.len()).bold().cyan());
+            println!(
+                "{} Processing mode: 󰸭 {} with {} frames",
+                IMAGE,
+                style("WEBP").bold().cyan(),
+                style(frames.len()).bold().cyan()
+            );
 
             let frames_spin = multi_progress.add(ProgressBar::new(frame_count as u64));
             frames_spin.set_style(
@@ -314,24 +350,23 @@ fn handle_image(
                     .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")?
             );
 
-
-            let seed = args.seed.unwrap();
-
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
             (0..frames.len()).into_par_iter().for_each(|i| {
                 let pb = multi_progress.add(ProgressBar::new(0));
                 pb.enable_steady_tick(Duration::from_millis(100));
 
-                let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
-
                 let frame = frames.get(i).expect("Failed to get frame").to_owned();
                 let delay = frame.delay().numer_denom_ms().0;
 
                 let img = frame.into_buffer();
-                let out = process(img.into(), parsed, args, &mut rng, Some(pb)).expect("Failed to process frame");
+                let out =
+                    process(img.into(), parsed, args, Some(pb)).expect("Failed to process frame");
 
                 let frame = Frame::new(RgbaImage::from(out));
-                new_frames.lock().expect("failed to unlock").push((i, (frame, delay)));
+                new_frames
+                    .lock()
+                    .expect("failed to unlock")
+                    .push((i, (frame, delay)));
 
                 frames_spin.inc(1);
             });
@@ -346,12 +381,18 @@ fn handle_image(
                 encoding_config: Some(webp_animation::EncodingConfig::new_lossy(100.0)),
                 ..Default::default()
             };
-            let mut encoder = webp_animation::prelude::Encoder::new_with_options((w, h), options).expect("Failed to create encoder");
+            let mut encoder = webp_animation::prelude::Encoder::new_with_options((w, h), options)
+                .expect("Failed to create encoder");
             let mut last_ms = 0i32;
             for (i, frame) in frames {
                 let buffer = frame.0.into_buffer();
 
-                encoder.add_frame(&buffer, last_ms).unwrap_or_else(|e| panic!("Failed to add frame: {} ms: {} dur: {} -> {}", i, last_ms, frame.1, e));
+                encoder.add_frame(&buffer, last_ms).unwrap_or_else(|e| {
+                    panic!(
+                        "Failed to add frame: {} ms: {} dur: {} -> {}",
+                        i, last_ms, frame.1, e
+                    )
+                });
 
                 last_ms += frame.1 as i32;
 
@@ -377,7 +418,12 @@ fn handle_image(
             let new_frames = Mutex::new(Vec::with_capacity(frames.len()));
 
             let frame_count = frames.len();
-            println!("{} Processing mode: 󰸭 {} with {} frames", IMAGE, style("GIF").bold().cyan(), style(frames.len()).bold().cyan());
+            println!(
+                "{} Processing mode: 󰸭 {} with {} frames",
+                IMAGE,
+                style("GIF").bold().cyan(),
+                style(frames.len()).bold().cyan()
+            );
 
             let frames_spin = multi_progress.add(ProgressBar::new(frame_count as u64));
             frames_spin.set_style(
@@ -385,19 +431,16 @@ fn handle_image(
                     .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta}) {msg}")?
             );
 
-            let seed = args.seed.unwrap();
             (0..frame_count).into_par_iter().for_each(|i| {
                 let pb = multi_progress.add(ProgressBar::new(0));
                 // update a bit slower
                 pb.enable_steady_tick(Duration::from_millis(100));
 
-                let mut rng: Box<dyn RngCore> = Box::new(StdRng::seed_from_u64(seed));
-
                 let frame = frames.get(i).expect("Failed to get frame").to_owned();
                 let delay = frame.delay().numer_denom_ms().0 as u16;
                 let img = frame.into_buffer();
                 let out =
-                    process(img.into(), parsed, args, &mut rng, Some(pb)).expect("Failed to process frame");
+                    process(img.into(), parsed, args, Some(pb)).expect("Failed to process frame");
                 let mut bytes = out.as_bytes().to_vec();
 
                 let mut new_frame = gif::Frame::from_rgba_speed(w as u16, h as u16, &mut bytes, 10);
@@ -425,21 +468,28 @@ fn handle_image(
 
             frames_spin.finish_and_clear();
 
-            println!("{} Processed {} frames...", OK, style(frame_count).bold().cyan());
+            println!(
+                "{} Processed {} frames...",
+                OK,
+                style(frame_count).bold().cyan()
+            );
         }
         _ => return Err(anyhow::anyhow!("Unsupported file format\n")),
     };
 
     let output_file = Path::new(&output);
 
-   println!(
+    println!(
         "{} Processed {} Expression{}...",
         OK,
         style(expression_count).bold().cyan(),
         if expression_count > 1 { "s" } else { "" }
     );
 
-    let absolute_path = fs::canonicalize(output_file).map_or_else(|_| output_file.to_path_buf(), |path| strip_windows_prefix(&path));
+    let absolute_path = fs::canonicalize(output_file).map_or_else(
+        |_| output_file.to_path_buf(),
+        |path| strip_windows_prefix(&path),
+    );
     println!(
         "{} Output File: {}",
         IMAGE,
@@ -449,10 +499,7 @@ fn handle_image(
     if args.open {
         open::that(output_file)?;
 
-        println!(
-            "{} Opened output file with default application...",
-            EYE,
-        );
+        println!("{} Opened output file with default application...", EYE,);
     }
     Ok(())
 }
@@ -461,83 +508,92 @@ fn process(
     mut img: DynamicImage,
     expressions: &[(String, Vec<Token>)],
     args: &Args,
-    rand: &mut Box<dyn RngCore>,
-    progress_bar: Option<ProgressBar>
+    progress_bar: Option<ProgressBar>,
 ) -> anyhow::Result<DynamicImage> {
-    let mut output_image = DynamicImage::new(img.width(), img.height(), img.color());
+    let width = img.width();
+    let height = img.height();
+    let mut output_image = DynamicImage::new(width, height, img.color());
 
     let pb = if let Some(pb) = progress_bar {
-       // get total pixels to process of the image * number of expressions as u64
-        let total_pixels = ((img.width() * img.height()) * expressions.len() as u32) as u64;
+        let total_pixels = ((width * height) * expressions.len() as u32) as u64;
         pb.set_length(total_pixels);
-        pb.set_style(
-            ProgressStyle::default_bar()
-                .template("{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})")?
-        );
-
+        pb.set_style(ProgressStyle::default_bar().template(
+            "{spinner:.green} [{elapsed_precise}] [{bar:40.cyan/blue}] {pos}/{len} ({eta})",
+        )?);
         Some(pb)
     } else {
         None
     };
 
-    for  val in expressions.iter() {
-        let (_, tokens) = val;
+    // Calculate bounds ONCE outside the expression loop
+    let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
+    let min_x = bounds.min_x();
+    let max_x = bounds.max_x();
+    let min_y = bounds.min_y();
+    let max_y = bounds.max_y();
 
-        let width = img.width();
-        let height = img.height();
+    let seed = args.seed.unwrap_or(0);
 
-        let mut sr = 0u8;
-        let mut sg = 0u8;
-        let mut sb = 0u8;
+    for (_, tokens) in expressions.iter() {
+        // Generate all pixel coordinates
+        let coords: Vec<(u32, u32)> = (min_x..max_x)
+            .flat_map(|x| (min_y..max_y).map(move |y| (x, y)))
+            .collect();
 
-        let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
-        let min_x = bounds.min_x();
-        let max_x = bounds.max_x();
-        let min_y = bounds.min_y();
-        let max_y = bounds.max_y();
+        // Process pixels in parallel
+        let results: Vec<(u32, u32, image::Rgba<u8>)> = coords
+            .par_iter()
+            .map(|&(x, y)| {
+                // Each thread gets its own RNG seeded deterministically
+                let mut rng: Box<dyn RngCore + Send> = Box::new(StdRng::seed_from_u64(
+                    seed.wrapping_add((x as u64) << 32 | y as u64),
+                ));
 
-        for x in min_x..max_x {
-            for y in min_y..max_y {
                 let colors = img.get_pixel(x, y).to_rgba();
 
                 let result = eval::eval(
                     EvalContext {
-                        tokens: tokens.clone(),
+                        tokens,
                         size: (width, height),
                         rgba: colors,
-                        saved_rgb: [sr, sg, sb],
+                        saved_rgb: [0, 0, 0], // Can't use state in parallel mode
                         position: (x, y),
-                        ignore_state: args.no_state,
+                        ignore_state: true, // Must ignore state in parallel
                     },
                     &img,
-                    rand,
+                    &mut rng,
                 )
-                    .expect("Failed to evaluate");
+                .expect("Failed to evaluate");
 
-                sr = result[0];
-                sg = result[1];
-                sb = result[2];
+                (x, y, result)
+            })
+            .collect();
 
-                output_image.put_pixel(x, y, result);
-
-                if let Some(pb) = &pb {
-                    pb.inc(1);
-                }
-            }
+        // Apply all results to output image
+        for (x, y, rgba) in results {
+            output_image.put_pixel(x, y, rgba);
         }
 
-        img = output_image.clone();
+        if let Some(pb) = &pb {
+            pb.inc((max_x - min_x) as u64 * (max_y - min_y) as u64);
+        }
+
+        // Swap instead of clone - avoids full image copy
+        std::mem::swap(&mut img, &mut output_image);
     }
 
     if let Some(pb) = pb {
         pb.finish_and_clear();
     }
 
-    Ok(output_image)
+    // After swap, img has the final result
+    Ok(img)
 }
 
 fn strip_windows_prefix(path: &Path) -> PathBuf {
-    path.to_str().and_then(|s| s.strip_prefix(r"\\?\")).map_or_else(|| path.to_path_buf(), PathBuf::from)
+    path.to_str()
+        .and_then(|s| s.strip_prefix(r"\\?\"))
+        .map_or_else(|| path.to_path_buf(), PathBuf::from)
 }
 
 fn get_random_seed(args: &Args) -> u64 {
