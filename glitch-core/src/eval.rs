@@ -186,7 +186,7 @@ pub fn eval<R: RngCore>(
                     let colors = gen_random_position(neg as i32, num as i32, rng);
                     let rgb = rgb_from_colors(&colors);
                     if !ignore_state {
-                        saved.v_r.get_or_insert(HashMap::new()).insert(num, rgb);
+                        saved.v_r.get_or_insert_with(HashMap::new).insert(num, rgb);
                     }
                     rgb
                 };

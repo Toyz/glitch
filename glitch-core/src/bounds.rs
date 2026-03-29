@@ -22,7 +22,7 @@ impl Bounds {
     }
 
     /// Updates the bounds based on the x, y coordinates provided.
-    fn update(&mut self, x: u32, y: u32) {
+    const fn update(&mut self, x: u32, y: u32) {
         if x < self.min_x {
             self.min_x = x;
         }

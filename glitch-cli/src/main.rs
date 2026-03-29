@@ -88,9 +88,9 @@ static SEED: Emoji<'_, '_> = Emoji("🌱  ", "");
 
 fn main() -> anyhow::Result<()> {
     let mut args = Args::parse();
-    if args.threads.is_some() {
+    if let Some(threads) = args.threads {
         rayon::ThreadPoolBuilder::new()
-            .num_threads(args.threads.unwrap() as usize)
+            .num_threads(threads as usize)
             .build_global()
             .expect("Failed to set thread count");
     }
