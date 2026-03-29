@@ -1,8 +1,8 @@
 #![deny(clippy::perf, clippy::correctness)]
 #![warn(rust_2018_idioms, clippy::complexity, clippy::nursery)]
 
-use crate::eval::EvalContext;
-use crate::token::Token;
+use glitch_core::eval::EvalContext;
+use glitch_core::Token;
 use clap::Parser;
 use console::{style, Emoji};
 use dirs::home_dir;
@@ -27,11 +27,7 @@ use std::sync::Mutex;
 use std::time::Duration;
 use webp_animation::EncoderOptions;
 
-mod bounds;
-mod eval;
-mod parser;
-mod rgb;
-mod token;
+
 
 #[derive(Parser, Debug, Clone)]
 #[command(version, about, long_about = None, author)]
@@ -197,7 +193,7 @@ fn main() -> anyhow::Result<()> {
             ));
             spinner.enable_steady_tick(Duration::from_millis(100));
 
-            let tokens = match parser::shunting_yard(e) {
+            let tokens = match glitch_core::parser::shunting_yard(e) {
                 Ok(tokens) => tokens,
                 Err(err) => {
                     spinner.finish_and_clear();
@@ -526,7 +522,7 @@ fn process(
     };
 
     // Calculate bounds ONCE outside the expression loop
-    let bounds = bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
+    let bounds = glitch_core::bounds::find_non_zero_bounds(&img).expect("Failed to find non-zero bounds");
     let min_x = bounds.min_x();
     let max_x = bounds.max_x();
     let min_y = bounds.min_y();
@@ -551,7 +547,7 @@ fn process(
 
                 let colors = img.get_pixel(x, y).to_rgba();
 
-                let result = eval::eval(
+                let result = glitch_core::eval::eval(
                     EvalContext {
                         tokens,
                         size: (width, height),
