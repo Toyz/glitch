@@ -204,26 +204,18 @@ pub fn eval<R: RngCore>(
             Token::Brightness(brightness_value) => {
                 let factor = (brightness_value as f64 / 255.0).clamp(0.0, 1.0);
 
-                let pixel = input.get_pixel(x, y);
-                let r = pixel[0];
-                let g = pixel[1];
-                let b = pixel[2];
-
-                let (nr, ng, nb) = adjust_brightness_hsv(r, g, b, factor);
+                let pixel = get_pixel_in_bounds(x, y);
+                let (nr, ng, nb) = adjust_brightness_hsv(pixel[0], pixel[1], pixel[2], factor);
 
                 stack.push(Rgb::new(nr, ng, nb));
             }
 
             Token::Invert => {
-                let pixel = input.get_pixel(x, y);
+                let pixel = get_pixel_in_bounds(x, y);
                 let mut new_rgba = Rgba([pixel[0], pixel[1], pixel[2], pixel[3]]);
                 new_rgba.invert();
 
-                let r = new_rgba[0];
-                let g = new_rgba[1];
-                let b = new_rgba[2];
-
-                stack.push(Rgb::new(r, g, b));
+                stack.push(Rgb::new(new_rgba[0], new_rgba[1], new_rgba[2]));
             }
 
             Token::Char(c) => match c {
@@ -425,13 +417,8 @@ pub fn eval<R: RngCore>(
                     let v_h = match saved.v_h {
                         Some(v_h) => v_h,
                         None => {
-                            let h = width - x - 1;
-                            // check that we are in bounds
-                            if h >= width {
-                                return Err("Out of bounds".to_string());
-                            }
-
-                            let pixel = input.get_pixel(h, y).0;
+                            let h = width.wrapping_sub(x).wrapping_sub(1);
+                            let pixel = get_pixel_in_bounds(h, y);
 
                             let v_h = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
@@ -447,8 +434,8 @@ pub fn eval<R: RngCore>(
                     let v_v = match saved.v_v {
                         Some(v_v) => v_v,
                         None => {
-                            let v = height - y - 1;
-                            let pixel = input.get_pixel(x, v).0;
+                            let v = height.wrapping_sub(y).wrapping_sub(1);
+                            let pixel = get_pixel_in_bounds(x, v);
 
                             let v_v = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
@@ -464,9 +451,9 @@ pub fn eval<R: RngCore>(
                     let v_d = match saved.v_d {
                         Some(v_d) => v_d,
                         None => {
-                            let x = width - x - 1;
-                            let y = height - y - 1;
-                            let pixel = input.get_pixel(x, y).0;
+                            let x = width.wrapping_sub(x).wrapping_sub(1);
+                            let y = height.wrapping_sub(y).wrapping_sub(1);
+                            let pixel = get_pixel_in_bounds(x, y);
 
                             let v_d = Rgb::new(pixel[0], pixel[1], pixel[2]);
                             if !ignore_state {
