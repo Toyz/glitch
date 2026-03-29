@@ -503,7 +503,7 @@ fn fetch_boxed(input: &DynamicImage, x: i32, y: i32, r: u8, g: u8, b: u8) -> [Rg
                 continue;
             }
 
-            if i < 0 || j < 0 {
+            if i < 0 || j < 0 || i as u32 >= input.width() || j as u32 >= input.height() {
                 boxed[k] = Rgb::default();
                 k += 1;
                 continue;
