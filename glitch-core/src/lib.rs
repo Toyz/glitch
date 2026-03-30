@@ -2,11 +2,13 @@
 #![warn(rust_2018_idioms, clippy::complexity, clippy::nursery)]
 
 pub mod bounds;
+pub mod classify;
 pub mod eval;
 pub mod parser;
 pub mod rgb;
 pub mod token;
 
+pub use classify::{classify, Classification};
 pub use eval::EvalContext;
 pub use token::Token;
 pub use rgb::Rgb;
@@ -86,7 +88,7 @@ pub fn verify(expr: &str) -> Result<VerifyResult, String> {
 }
 
 /// Returns (pops, pushes) for each token's stack effect.
-fn stack_effect(tok: &Token) -> (i32, i32) {
+const fn stack_effect(tok: &Token) -> (i32, i32) {
     match tok {
         // Values — push 1
         Token::Num(_)
